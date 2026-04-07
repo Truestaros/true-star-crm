@@ -29,8 +29,8 @@ const DEFAULT_SETTINGS = {
   website: '',
   logoDataUrl: '',
   timeZone: getBrowserTimeZone(),
-  primaryColor: '#007aff',
-  secondaryColor: '#0051d5',
+  primaryColor: '#5a7a5f',
+  secondaryColor: '#3d5942',
   contractTermMonths: 12,
   minMarginGatePct: 35,
   termsAndConditions: DEFAULT_TERMS_AND_CONDITIONS,
@@ -92,14 +92,22 @@ function normalizeSettings(rawSettings = {}) {
     rawSettings.termsAndConditions ?? DEFAULT_SETTINGS.termsAndConditions,
   );
 
+  // Migrate from old Apple-blue defaults to True Star brand green
+  const OLD_PRIMARY = '#007aff';
+  const OLD_SECONDARY = '#0051d5';
+  const rawPrimary = String(rawSettings.primaryColor || '').trim().toLowerCase();
+  const rawSecondary = String(rawSettings.secondaryColor || '').trim().toLowerCase();
+  const migratedPrimary = rawPrimary === OLD_PRIMARY ? DEFAULT_SETTINGS.primaryColor : normalizeColor(rawSettings.primaryColor, DEFAULT_SETTINGS.primaryColor);
+  const migratedSecondary = rawSecondary === OLD_SECONDARY ? DEFAULT_SETTINGS.secondaryColor : normalizeColor(rawSettings.secondaryColor, DEFAULT_SETTINGS.secondaryColor);
+
   return {
     businessName,
     businessAddress,
     website,
     logoDataUrl,
     timeZone,
-    primaryColor: normalizeColor(rawSettings.primaryColor, DEFAULT_SETTINGS.primaryColor),
-    secondaryColor: normalizeColor(rawSettings.secondaryColor, DEFAULT_SETTINGS.secondaryColor),
+    primaryColor: migratedPrimary,
+    secondaryColor: migratedSecondary,
     contractTermMonths,
     minMarginGatePct,
     termsAndConditions,

@@ -839,16 +839,20 @@ function EstimatorV6Sandbox({ properties = [], managers = [], onSaveEstimate }) 
     let resolvedLogoDataUrl = settings.logoDataUrl && settings.logoDataUrl.startsWith('data:image/')
       ? settings.logoDataUrl
       : null;
+    // True Star SVG viewBox is 2130 wide × 2310 tall — aspect ratio ≈ 0.922 (slightly portrait)
+    const BRAND_SVG_ASPECT = 2310 / 2130; // height / width
     if (!resolvedLogoDataUrl) {
       try {
         resolvedLogoDataUrl = await new Promise((resolve) => {
           const img = new Image();
+          const cw = 240;
+          const ch = Math.round(cw * BRAND_SVG_ASPECT); // 260 — preserves portrait ratio
           img.onload = () => {
             const canvas = document.createElement('canvas');
-            canvas.width = 600;
-            canvas.height = 160;
+            canvas.width = cw;
+            canvas.height = ch;
             const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0, cw, ch);
             resolve(canvas.toDataURL('image/png'));
           };
           img.onerror = () => resolve(null);
@@ -881,23 +885,25 @@ function EstimatorV6Sandbox({ properties = [], managers = [], onSaveEstimate }) 
     doc.setDrawColor(...mutedBorder);
     doc.line(margin, 78, pageWidth - margin, 78);
 
-    const logoWidth = 150;
-    const logoHeight = 40;
+    // Logo dimensions — brand mark is portrait (2130 × 2310 viewBox), render at 48pt tall
+    const logoHeight = 48;
+    const logoWidth = Math.round(logoHeight / BRAND_SVG_ASPECT); // ~44pt wide
+    const logoY = Math.round((78 - logoHeight) / 2); // vertically centered in 78pt header
     try {
       if (resolvedLogoDataUrl) {
-        doc.addImage(resolvedLogoDataUrl, 'PNG', margin, 28, logoWidth, logoHeight);
+        doc.addImage(resolvedLogoDataUrl, 'PNG', margin, logoY, logoWidth, logoHeight);
       } else {
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(18);
         doc.setTextColor(...primaryRgb);
-        doc.text(settings.businessName || 'Landscape Development', margin, 48);
+        doc.text(settings.businessName || 'True Star Outdoor Solutions', margin, logoY + logoHeight - 4);
         doc.setTextColor(0, 0, 0);
       }
     } catch {
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(18);
       doc.setTextColor(...primaryRgb);
-      doc.text(settings.businessName || 'Landscape Development', margin, 48);
+      doc.text(settings.businessName || 'True Star Outdoor Solutions', margin, logoY + logoHeight - 4);
       doc.setTextColor(0, 0, 0);
     }
 
