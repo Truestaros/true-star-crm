@@ -526,7 +526,7 @@ function WorkTicketsPage() {
             <ClipboardList size={20} />
             <div>
               <strong>No tickets in this view.</strong>
-              <p>Approve estimates in V6 Formula Engine to generate work tickets.</p>
+              <p>Mark an estimate as Won to generate work tickets automatically.</p>
             </div>
           </div>
         )}

@@ -4,7 +4,6 @@ import {
   Building2,
   Users,
   LogOut,
-  Trees,
   Layers,
   AlertTriangle,
   CalendarDays,
@@ -421,6 +420,18 @@ function App() {
     settings: 'Settings',
   }[activeView] || 'Commercial CRM';
 
+  const headerSubtitle = {
+    pipeline: 'Kanban view of all active deals and pipeline value.',
+    'property-managers': 'Contacts, notes, and portfolios for every manager.',
+    properties: 'All commercial sites — measurements, estimates, and activity.',
+    estimates: 'All proposals across every property and manager.',
+    'service-catalog': 'Define services, pricing, and formulas used in estimates.',
+    estimator: 'Build and price proposals line by line.',
+    'crew-schedule': 'Schedule crew by day and property.',
+    'work-tickets': 'Active work orders and budget vs. actual tracking.',
+    settings: 'Business info, branding, and app preferences.',
+  }[activeView] || '';
+
   if (!token) {
     return <div className="auth-shell">Login disabled for mock data mode.</div>;
   }
@@ -428,7 +439,7 @@ function App() {
   if (loading) {
     return (
       <div className="auth-shell" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-        <Trees size={24} />
+        <img src="/logo.svg" alt="True Star" style={{ width: 28, height: 28 }} />
         <span>Loading True Star CRM…</span>
       </div>
     );
@@ -443,7 +454,7 @@ function App() {
             {appSettings.logoDataUrl ? (
               <img src={appSettings.logoDataUrl} alt={`${sidebarTitle} logo`} className="sidebar-logo-image" />
             ) : (
-              <Trees size={24} />
+              <img src="/logo.svg" alt="True Star" className="sidebar-logo-image" />
             )}
             <div>
               <h2>{sidebarTitle}</h2>
@@ -506,7 +517,7 @@ function App() {
           <header className="crm-header">
             <div>
               <h1>{headerTitle}</h1>
-              <p>Track property managers, portfolios, and active deals.</p>
+              {headerSubtitle && <p>{headerSubtitle}</p>}
             </div>
             <div className="crm-header-actions">
               <select value={currentRole} onChange={(e) => setCurrentRole(e.target.value)} className="role-select" title="Current user role">

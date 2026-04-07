@@ -824,7 +824,7 @@ function EstimatorV6Sandbox({ properties = [], managers = [], onSaveEstimate }) 
     updateModel((prev) => applyPropertyPrefill(prev, property, manager, true));
   }
 
-  function handleDownloadPdf() {
+  async function handleDownloadPdf() {
     const { fixedRows, optionalRows } = createPdfRows(sections);
     const annualMaintenancePrice = fixedRows.reduce((sum, row) => sum + row.annualCost, 0);
 
@@ -834,6 +834,31 @@ function EstimatorV6Sandbox({ properties = [], managers = [], onSaveEstimate }) 
     }
 
     const settings = loadSettings();
+
+    // Resolve logo: use uploaded logo → brand SVG → text fallback
+    let resolvedLogoDataUrl = settings.logoDataUrl && settings.logoDataUrl.startsWith('data:image/')
+      ? settings.logoDataUrl
+      : null;
+    if (!resolvedLogoDataUrl) {
+      try {
+        resolvedLogoDataUrl = await new Promise((resolve) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = 600;
+            canvas.height = 160;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            resolve(canvas.toDataURL('image/png'));
+          };
+          img.onerror = () => resolve(null);
+          img.src = '/logo.svg';
+        });
+      } catch {
+        resolvedLogoDataUrl = null;
+      }
+    }
+
     const doc = new jsPDF({ unit: 'pt', format: 'letter' });
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
@@ -859,9 +884,8 @@ function EstimatorV6Sandbox({ properties = [], managers = [], onSaveEstimate }) 
     const logoWidth = 150;
     const logoHeight = 40;
     try {
-      if (settings.logoDataUrl && settings.logoDataUrl.startsWith('data:image/')) {
-        const imageType = settings.logoDataUrl.includes('image/png') ? 'PNG' : 'JPEG';
-        doc.addImage(settings.logoDataUrl, imageType, margin, 28, logoWidth, logoHeight);
+      if (resolvedLogoDataUrl) {
+        doc.addImage(resolvedLogoDataUrl, 'PNG', margin, 28, logoWidth, logoHeight);
       } else {
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(18);
