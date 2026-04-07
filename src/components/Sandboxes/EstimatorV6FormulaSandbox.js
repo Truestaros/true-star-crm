@@ -867,8 +867,7 @@ function EstimatorV6Sandbox({ properties = [], managers = [], onSaveEstimate }) 
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 36;
-    const primaryRgb = hexToRgbTuple(settings.primaryColor, [47, 111, 156]);
-    const secondaryRgb = hexToRgbTuple(settings.secondaryColor, [39, 88, 124]);
+    const primaryRgb = hexToRgbTuple(settings.primaryColor, [90, 122, 95]);
     const headerBg = mixRgb(primaryRgb, [255, 255, 255], 0.92);
     const cardBg = mixRgb(primaryRgb, [255, 255, 255], 0.96);
     const mutedBorder = mixRgb(primaryRgb, [255, 255, 255], 0.75);
