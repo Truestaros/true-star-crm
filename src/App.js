@@ -37,6 +37,7 @@ import {
   getNotes,
   createNote,
   getEstimates,
+  upsertEstimate,
   updateEstimateStatus,
 } from './lib/db';
 
@@ -253,7 +254,6 @@ function App() {
       phone: form.phone,
       title: form.title,
       createdAt: new Date(),
-      notes: form.notes,
     };
     setManagers((prev) => [newManager, ...prev]);
     setShowAddManager(false);
@@ -331,6 +331,18 @@ function App() {
       if (created > 0) {
         alert(`${created} work ticket${created === 1 ? '' : 's'} created from won estimate ${nextEstimate.proposalNumber || ''}.`);
       }
+    }
+  }
+
+  async function handleSaveEstimate(estimate) {
+    setEstimates((prev) => {
+      const exists = prev.some((e) => e.id === estimate.id);
+      return exists ? prev.map((e) => (e.id === estimate.id ? { ...e, ...estimate } : e)) : [estimate, ...prev];
+    });
+    try {
+      await upsertEstimate(estimate);
+    } catch (err) {
+      console.error('Failed to save estimate:', err);
     }
   }
 
@@ -618,6 +630,7 @@ function App() {
                   properties={properties}
                   managers={managers}
                   estimates={estimates}
+                  onSaveEstimate={handleSaveEstimate}
                 />
               }
             />

@@ -33,5 +33,5 @@ src/shared/
 # Temp files
 tmp-contract.pdf
 tmp-contract.png
-sandboxes/
+/sandboxes/
 .vercel
