@@ -871,8 +871,8 @@ function EstimatorV6Sandbox({ properties = [], managers = [], onSaveEstimate }) 
     const secondaryRgb = hexToRgbTuple(settings.secondaryColor, [39, 88, 124]);
     const headerBg = mixRgb(primaryRgb, [255, 255, 255], 0.92);
     const cardBg = mixRgb(primaryRgb, [255, 255, 255], 0.96);
-    const mutedBorder = mixRgb(secondaryRgb, [255, 255, 255], 0.75);
-    const bandTextRgb = getContrastRgb(secondaryRgb);
+    const mutedBorder = mixRgb(primaryRgb, [255, 255, 255], 0.75);
+    const bandTextRgb = getContrastRgb(primaryRgb);
     const tableAltBg = mixRgb(primaryRgb, [255, 255, 255], 0.975);
 
     const proposalDate = model.proposalDate || todayDateInputValue();
@@ -917,7 +917,7 @@ function EstimatorV6Sandbox({ properties = [], managers = [], onSaveEstimate }) 
     doc.setFillColor(255, 255, 255);
     doc.setDrawColor(...mutedBorder);
     doc.roundedRect(propBoxX, propBoxY, propBoxW, propBoxH, 4, 4, 'FD');
-    doc.setFillColor(...secondaryRgb);
+    doc.setFillColor(...primaryRgb);
     doc.roundedRect(propBoxX, propBoxY, propBoxW, 22, 4, 4, 'F');
     doc.setTextColor(...bandTextRgb);
     doc.setFont('helvetica', 'bold');
@@ -944,7 +944,7 @@ function EstimatorV6Sandbox({ properties = [], managers = [], onSaveEstimate }) 
     const titleHeight = 18;
 
     const drawInfoBox = (x, y, title, lines) => {
-      doc.setFillColor(...secondaryRgb);
+      doc.setFillColor(...primaryRgb);
       doc.rect(x, y, boxWidth, titleHeight, 'F');
       doc.setTextColor(...bandTextRgb);
       doc.setFont('helvetica', 'bold');
@@ -978,7 +978,7 @@ function EstimatorV6Sandbox({ properties = [], managers = [], onSaveEstimate }) 
     ]);
 
     const agreementTop = boxTop + bodyHeight + titleHeight + 18;
-    doc.setFillColor(...secondaryRgb);
+    doc.setFillColor(...primaryRgb);
     doc.rect(margin, agreementTop, pageWidth - margin * 2, 22, 'F');
     doc.setTextColor(...bandTextRgb);
     doc.setFont('helvetica', 'bold');
@@ -997,7 +997,7 @@ function EstimatorV6Sandbox({ properties = [], managers = [], onSaveEstimate }) 
     const tableStyles = {
       margin: { left: margin, right: margin },
       styles: { fontSize: 9, lineColor: mutedBorder, lineWidth: 0.2, cellPadding: 4 },
-      headStyles: { fillColor: secondaryRgb, textColor: bandTextRgb, halign: 'left', fontStyle: 'bold' },
+      headStyles: { fillColor: primaryRgb, textColor: bandTextRgb, halign: 'left', fontStyle: 'bold' },
       alternateRowStyles: { fillColor: tableAltBg },
       tableLineWidth: 0.2,
       tableLineColor: mutedBorder,
@@ -1006,7 +1006,7 @@ function EstimatorV6Sandbox({ properties = [], managers = [], onSaveEstimate }) 
     const drawContinuationHeader = () => {
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(10);
-      doc.setTextColor(...secondaryRgb);
+      doc.setTextColor(...primaryRgb);
       doc.text(`Proposal #${model.estimateNumber || ''} - Continued`, margin, margin - 4);
       doc.setDrawColor(...mutedBorder);
       doc.line(margin, margin, pageWidth - margin, margin);
@@ -1021,15 +1021,15 @@ function EstimatorV6Sandbox({ properties = [], managers = [], onSaveEstimate }) 
     };
 
     const drawBandHeading = (title) => {
-      ensurePageSpace(24);
-      doc.setFillColor(...secondaryRgb);
-      doc.rect(margin, cursorY, pageWidth - margin * 2, 18, 'F');
+      ensurePageSpace(32);
+      doc.setFillColor(...primaryRgb);
+      doc.rect(margin, cursorY, pageWidth - margin * 2, 20, 'F');
       doc.setTextColor(...bandTextRgb);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(10);
-      doc.text(title, margin + 8, cursorY + 12.5);
+      doc.text(title, margin + 8, cursorY + 13.5);
       doc.setTextColor(0, 0, 0);
-      cursorY += 22;
+      cursorY += 30; // 20pt band + 10pt clear gap before body text
     };
 
     drawBandHeading('Fixed Payment Services');
@@ -1075,7 +1075,7 @@ function EstimatorV6Sandbox({ properties = [], managers = [], onSaveEstimate }) 
       doc.roundedRect(x, cursorY, statCardWidth, 46, 3, 3, 'FD');
       doc.setFillColor(...primaryRgb);
       doc.rect(x, cursorY, statCardWidth, 3, 'F');
-      doc.setTextColor(...secondaryRgb);
+      doc.setTextColor(...primaryRgb);
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8);
       doc.text(card.label, x + 8, cursorY + 15);
