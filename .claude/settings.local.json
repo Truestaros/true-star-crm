@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(npx --no-install react-scripts build)",
-      "Bash(lsof:*)",
-      "Bash(npx react-scripts build:*)"
-    ]
-  }
-}

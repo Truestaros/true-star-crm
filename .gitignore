@@ -26,6 +26,10 @@ yarn-error.log*
 # Claude Code settings
 .claude/
 
+# Leftover backend stubs (replaced by Supabase)
+src/modules/
+src/shared/
+
 # Temp files
 tmp-contract.pdf
 tmp-contract.png
