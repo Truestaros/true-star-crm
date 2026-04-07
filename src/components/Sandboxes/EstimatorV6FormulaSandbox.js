@@ -307,8 +307,6 @@ function loadModel() {
       estimateId: uid('est-v6'),
       propertyAddress: '',
       status: 'draft',
-      jobType: 'maintenance_contract',
-      scopeTemplateId: null,
       minMarginGatePct: defaults.minMarginGatePct,
       laborRates: { maintenance: 45, planting: 60, irrigation: 75 },
       ...parsed,
@@ -517,8 +515,6 @@ function EstimatorV6Sandbox({ properties = [], managers = [], onSaveEstimate }) 
   const showWizard = searchParams.get('new') === '1';
 
   function handleWizardConfirm(jobType, template) {
-    const defaults = (() => { try { return loadSettings(); } catch { return {}; } })();
-    const today = todayDateInputValue();
     const freshModel = {
       ...createDefaultModel(),
       estimateId: uid('est-v6'),
