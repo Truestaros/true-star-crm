@@ -216,3 +216,72 @@ export async function saveSettingsToDb(settings) {
   });
   if (error) throw error;
 }
+
+// ── Service Catalog Items ───────────────────────────────────────────────────
+
+export async function getCatalogItemsFromDb() {
+  return query(
+    supabase.from('catalog_items').select('*').order('name')
+  );
+}
+
+export async function upsertCatalogItemsToDb(items) {
+  if (!items || items.length === 0) return;
+  const rows = items.map((item) => camelToSnake({
+    id: item.id,
+    itemNumber: item.itemNumber || '',
+    source: item.source || 'custom',
+    trade: item.trade || 'general',
+    type: item.type || 'materials',
+    name: item.name || '',
+    description: item.description || '',
+    unit: item.unit || 'ea',
+    defaultQty: item.defaultQty ?? 1,
+    defaultUnitCost: item.defaultUnitCost ?? 0,
+    defaultHours: item.defaultHours ?? 0,
+    laborCategory: item.laborCategory || null,
+    defaultGmPct: item.defaultGmPct ?? 0,
+    defaultOverheadPct: item.defaultOverheadPct ?? 0,
+    defaultFrequency: item.defaultFrequency ?? 1,
+    isOptional: item.isOptional ?? false,
+    updatedAt: new Date().toISOString(),
+  }));
+  // Batch in chunks of 500 to stay within Supabase row limits
+  for (let i = 0; i < rows.length; i += 500) {
+    const chunk = rows.slice(i, i + 500);
+    const { error } = await supabase.from('catalog_items').upsert(chunk);
+    if (error) throw error;
+  }
+}
+
+export async function deleteCatalogItemFromDb(id) {
+  const { error } = await supabase.from('catalog_items').delete().eq('id', id);
+  if (error) throw error;
+}
+
+// ── Service Catalog Templates ───────────────────────────────────────────────
+
+export async function getCatalogTemplatesFromDb() {
+  return query(
+    supabase.from('catalog_templates').select('*').order('name')
+  );
+}
+
+export async function upsertCatalogTemplatesToDb(templates) {
+  if (!templates || templates.length === 0) return;
+  const rows = templates.map((tpl) => camelToSnake({
+    id: tpl.id,
+    name: tpl.name || '',
+    description: tpl.description || '',
+    billingType: tpl.billingType || 'fixed_price',
+    sections: tpl.sections || [],
+    updatedAt: new Date().toISOString(),
+  }));
+  const { error } = await supabase.from('catalog_templates').upsert(rows);
+  if (error) throw error;
+}
+
+export async function deleteCatalogTemplateFromDb(id) {
+  const { error } = await supabase.from('catalog_templates').delete().eq('id', id);
+  if (error) throw error;
+}

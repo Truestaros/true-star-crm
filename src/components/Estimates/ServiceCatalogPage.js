@@ -1,6 +1,15 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, ChevronRight, Plus, Check, ArrowLeft, Copy, X } from 'lucide-react';
 import mockServiceCatalog from '../../data/mockServiceCatalog.json';
+import swNurseryCatalog from '../../data/swNurseryCatalog.json';
+import {
+  getCatalogItemsFromDb,
+  upsertCatalogItemsToDb,
+  deleteCatalogItemFromDb,
+  getCatalogTemplatesFromDb,
+  upsertCatalogTemplatesToDb,
+  deleteCatalogTemplateFromDb,
+} from '../../lib/db';
 import './EstimatorV6Sandbox.css';
 
 /* ═══════════════════════════════════════════════════
@@ -159,10 +168,45 @@ function migrateOldItem(old) {
 }
 
 /* ═══════════════════════════════════════════════════
-   localStorage persistence
+   Southwest Nursery catalog expansion
    ═══════════════════════════════════════════════════ */
 
-function loadItems() {
+const TRADE_CODE_MAP = { p: 'planting', i: 'irrigation', h: 'hardscape', t: 'turf_care', g: 'general' };
+
+function expandSwNurseryItem([itemNumber, name, price, tradeCode]) {
+  return {
+    id: `sw-nursery-${itemNumber}`,
+    itemNumber,
+    source: 'Southwest Nursery',
+    trade: TRADE_CODE_MAP[tradeCode] || 'planting',
+    type: 'materials',
+    name,
+    description: '',
+    unit: 'ea',
+    defaultQty: 1,
+    defaultUnitCost: price,
+    defaultHours: 0,
+    laborCategory: null,
+    defaultGmPct: 0,
+    defaultOverheadPct: 0,
+    defaultFrequency: 1,
+    isOptional: false,
+    createdAt: '2026-04-07T00:00:00.000Z',
+    updatedAt: '2026-04-07T00:00:00.000Z',
+  };
+}
+
+function buildSeedItems() {
+  const custom = mockServiceCatalog.map(migrateOldItem);
+  const nursery = (swNurseryCatalog.items || []).map(expandSwNurseryItem);
+  return [...custom, ...nursery];
+}
+
+/* ═══════════════════════════════════════════════════
+   localStorage / Supabase persistence
+   ═══════════════════════════════════════════════════ */
+
+function loadItemsFromStorage() {
   try {
     const raw = localStorage.getItem(ITEMS_STORAGE_KEY);
     if (raw) {
@@ -170,20 +214,15 @@ function loadItems() {
       if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     }
   } catch { /* ignore */ }
-
-  // Seed from mock data
-  const seeded = mockServiceCatalog.map(migrateOldItem);
-  localStorage.setItem(ITEMS_STORAGE_KEY, JSON.stringify(seeded));
-  return seeded;
+  return null; // signals "not yet seeded locally"
 }
 
-function saveItems(items) {
+function saveItemsToStorage(items) {
   localStorage.setItem(ITEMS_STORAGE_KEY, JSON.stringify(items));
-  // Fire custom event for same-tab listeners (App.js sync bridge)
   window.dispatchEvent(new Event('catalog-items-changed'));
 }
 
-function loadTemplates() {
+function loadTemplatesFromStorage() {
   try {
     const raw = localStorage.getItem(TEMPLATES_STORAGE_KEY);
     if (raw) {
@@ -194,8 +233,38 @@ function loadTemplates() {
   return [];
 }
 
-function saveTemplates(templates) {
+function saveTemplatesToStorage(templates) {
   localStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify(templates));
+}
+
+// Legacy synchronous loader — returns from cache or seeds immediately
+function loadItems() {
+  const cached = loadItemsFromStorage();
+  if (cached) return cached;
+  const seeded = buildSeedItems();
+  saveItemsToStorage(seeded);
+  return seeded;
+}
+
+function loadTemplates() {
+  return loadTemplatesFromStorage();
+}
+
+function saveItems(items) {
+  saveItemsToStorage(items);
+  // Async Supabase sync — fire and forget
+  upsertCatalogItemsToDb(items).catch((err) =>
+    console.warn('Catalog items Supabase sync failed:', err)
+  );
+}
+
+function saveTemplates(templates) {
+  saveTemplatesToStorage(templates);
+  if (templates.length > 0) {
+    upsertCatalogTemplatesToDb(templates).catch((err) =>
+      console.warn('Catalog templates Supabase sync failed:', err)
+    );
+  }
 }
 
 /* ═══════════════════════════════════════════════════
@@ -235,6 +304,8 @@ export { buildLegacyServiceArray, ITEMS_STORAGE_KEY };
 function createDefaultItem() {
   return {
     id: uid('cat-item'),
+    itemNumber: '',
+    source: 'custom',
     trade: 'turf_care',
     type: 'labor',
     name: '',
@@ -304,10 +375,55 @@ function ServiceCatalogPage({ currentRole, permissions }) {
   const [activeTab, setActiveTab] = useState('items');
   const [items, setItems] = useState(loadItems);
   const [templates, setTemplates] = useState(loadTemplates);
+  const [dbStatus, setDbStatus] = useState('idle'); // 'idle' | 'syncing' | 'synced' | 'error'
+  const seededRef = useRef(false);
 
-  // Persist on changes
-  useEffect(() => { saveItems(items); }, [items]);
-  useEffect(() => { saveTemplates(templates); }, [templates]);
+  // On mount: load from Supabase and merge / seed if needed
+  useEffect(() => {
+    if (seededRef.current) return;
+    seededRef.current = true;
+    setDbStatus('syncing');
+
+    Promise.all([getCatalogItemsFromDb(), getCatalogTemplatesFromDb()])
+      .then(([dbItems, dbTemplates]) => {
+        if (dbItems && dbItems.length > 0) {
+          // Supabase has data — use it as the source of truth
+          saveItemsToStorage(dbItems);
+          setItems(dbItems);
+        } else {
+          // Supabase empty — seed everything up
+          const seed = buildSeedItems();
+          saveItemsToStorage(seed);
+          setItems(seed);
+          upsertCatalogItemsToDb(seed).catch((err) =>
+            console.warn('Initial catalog seed to Supabase failed:', err)
+          );
+        }
+        if (dbTemplates && dbTemplates.length > 0) {
+          saveTemplatesToStorage(dbTemplates);
+          setTemplates(dbTemplates);
+        }
+        setDbStatus('synced');
+      })
+      .catch((err) => {
+        console.warn('Catalog Supabase load failed, using localStorage:', err);
+        setDbStatus('error');
+      });
+  }, []);
+
+  // Persist items/templates to localStorage + Supabase on every change
+  // (skip the very first render — already loaded from storage above)
+  const itemsInitRef = useRef(true);
+  useEffect(() => {
+    if (itemsInitRef.current) { itemsInitRef.current = false; return; }
+    saveItems(items);
+  }, [items]);
+
+  const templatesInitRef = useRef(true);
+  useEffect(() => {
+    if (templatesInitRef.current) { templatesInitRef.current = false; return; }
+    saveTemplates(templates);
+  }, [templates]);
 
   const canEdit = permissions?.canEditCatalog;
 
@@ -319,6 +435,9 @@ function ServiceCatalogPage({ currentRole, permissions }) {
           <p style={{ color: 'var(--muted)', fontSize: 13 }}>
             Manage catalog items and estimate templates.
             {!canEdit && <span className="sc2-readonly-notice"> Read-only for {currentRole}.</span>}
+            {dbStatus === 'syncing' && <span style={{ marginLeft: 8, color: 'var(--muted)' }}>⟳ Syncing…</span>}
+            {dbStatus === 'synced' && <span style={{ marginLeft: 8, color: '#5a7a5f' }}>✓ {items.length.toLocaleString()} items loaded</span>}
+            {dbStatus === 'error' && <span style={{ marginLeft: 8, color: '#c0392b' }}>⚠ Offline — using local cache</span>}
           </p>
         </div>
       </div>
@@ -422,6 +541,9 @@ function ItemsTab({ items, setItems, canEdit }) {
 
   function handleDeleteItem(id) {
     setItems((prev) => prev.filter((i) => i.id !== id));
+    deleteCatalogItemFromDb(id).catch((err) =>
+      console.warn('Delete catalog item from Supabase failed:', err)
+    );
   }
 
   return (
@@ -742,6 +864,9 @@ function TemplatesTab({ templates, setTemplates, catalogItems, canEdit }) {
   function handleDeleteTemplate(id) {
     setTemplates((prev) => prev.filter((t) => t.id !== id));
     if (editingTemplateId === id) setEditingTemplateId(null);
+    deleteCatalogTemplateFromDb(id).catch((err) =>
+      console.warn('Delete catalog template from Supabase failed:', err)
+    );
   }
 
   function updateTemplate(id, updates) {
