@@ -568,19 +568,47 @@ function WorkTicketsPage() {
               </div>
 
               <div className="wt-estimate-cell">
-                <strong>{Number(ticket.estimatedHours || 0).toFixed(1)}h</strong>
-                <span>{formatCurrency(ticket.estimatedPrice || 0)}</span>
+                {(() => {
+                  const estHrs = Number(ticket.estimatedHours || 0);
+                  const actHrs = totalWorkedMinutes / 60;
+                  const hasActual = totalWorkedMinutes > 0;
+                  const varHrs = actHrs - estHrs;
+                  const varPct = estHrs > 0 ? (varHrs / estHrs) * 100 : 0;
+                  const over = varHrs > 0;
+                  return (
+                    <>
+                      <div className="bva-row">
+                        <span className="bva-label">Est</span>
+                        <span className="bva-value">{estHrs.toFixed(1)}h</span>
+                        <span className="bva-price">{formatCurrency(ticket.estimatedPrice || 0)}</span>
+                      </div>
+                      {hasActual && (
+                        <>
+                          <div className="bva-row">
+                            <span className="bva-label">Act</span>
+                            <span className="bva-value">{actHrs.toFixed(1)}h</span>
+                          </div>
+                          <div className={`bva-row bva-var ${over ? 'over' : 'under'}`}>
+                            <span className="bva-label">Var</span>
+                            <span className="bva-value">
+                              {over ? '+' : ''}{varHrs.toFixed(1)}h ({over ? '+' : ''}{varPct.toFixed(0)}%)
+                            </span>
+                          </div>
+                        </>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
 
               <div className="wt-time-cell">
                 <span className={`wt-badge wt-time-badge ${statusClass}`}>
                   {getTimeStatusLabel(ticket)}
                 </span>
-                <small>Actual: {formatDuration(totalWorkedMinutes)}</small>
                 {workerLabel && <small>Worker: {workerLabel}</small>}
                 {activeEntry && (
                   <small>
-                    Shift: {formatClockTime(activeEntry.startAt)} - now ({formatDuration(shiftWorkedMinutes)})
+                    Since {formatClockTime(activeEntry.startAt)} ({formatDuration(shiftWorkedMinutes)})
                   </small>
                 )}
               </div>

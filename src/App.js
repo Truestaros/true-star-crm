@@ -39,6 +39,10 @@ import {
   getEstimates,
   upsertEstimate,
   updateEstimateStatus,
+  updateProperty,
+  getActivities,
+  createActivity,
+  updateActivity,
 } from './lib/db';
 
 const roles = ['Admin', 'Sales', 'Estimator', 'Ops', 'ReadOnly'];
@@ -92,20 +96,23 @@ function App() {
   const [properties, setProperties] = useState([]);
   const [notes, setNotes] = useState([]);
   const [estimates, setEstimates] = useState([]);
+  const [activities, setActivities] = useState([]);
 
   // Load all data from Supabase on mount
   useEffect(() => {
     async function fetchAll() {
       try {
-        const [mgrs, props, nts, ests] = await Promise.all([
+        const [mgrs, props, nts, ests, acts] = await Promise.all([
           getPropertyManagers(),
           getProperties(),
           getNotes(),
           getEstimates(),
+          getActivities(),
         ]);
         setManagers(mgrs.map((m) => ({ ...m, createdAt: m.createdAt ? new Date(m.createdAt) : new Date() })));
         setProperties(props);
         setNotes(nts.map((n) => ({ ...n, createdAt: n.createdAt ? new Date(n.createdAt) : new Date() })));
+        setActivities(acts || []);
         setEstimates(
           ests.map((e) => ({
             ...e,
@@ -321,6 +328,13 @@ function App() {
       console.error('Failed to update estimate status:', err);
     }
 
+    // Mirror estimate status → property deal stage
+    if (nextEstimate?.propertyId) {
+      const stageMap = { sent: 'proposal', internal_review: 'negotiation', approved: 'negotiation', won: 'won', lost: 'lost' };
+      const newStage = stageMap[status];
+      if (newStage) handleStageMove(nextEstimate.propertyId, newStage);
+    }
+
     if (nextEstimate && String(status || '').toLowerCase() === 'won') {
       const property = properties.find((p) => p.id === nextEstimate.propertyId);
       const { created } = ensureEstimateTickets({
@@ -343,6 +357,34 @@ function App() {
       await upsertEstimate(estimate);
     } catch (err) {
       console.error('Failed to save estimate:', err);
+    }
+  }
+
+  async function handleUpdateProperty(updated) {
+    setProperties((prev) => prev.map((p) => (p.id === updated.id ? { ...p, ...updated } : p)));
+    try {
+      await updateProperty(updated);
+    } catch (err) {
+      console.error('Failed to update property:', err);
+    }
+  }
+
+  async function handleAddActivity(data) {
+    const newActivity = { id: uuid(), ...data, createdAt: new Date().toISOString() };
+    setActivities((prev) => [newActivity, ...prev]);
+    try {
+      await createActivity(newActivity);
+    } catch (err) {
+      console.error('Failed to save activity:', err);
+    }
+  }
+
+  async function handleToggleActivity(id, completed) {
+    setActivities((prev) => prev.map((a) => (a.id === id ? { ...a, completed } : a)));
+    try {
+      await updateActivity(id, { completed });
+    } catch (err) {
+      console.error('Failed to update activity:', err);
     }
   }
 
@@ -596,14 +638,17 @@ function App() {
                   properties={properties}
                   notes={notes}
                   estimates={estimates}
+                  activities={activities}
                   onUpdateManager={handleUpdateManager}
                   onAddNote={handleAddNote}
                   onAddProperty={handleAddProperty}
+                  onAddActivity={handleAddActivity}
+                  onToggleActivity={handleToggleActivity}
                 />
               }
             />
             <Route path="/properties" element={<PropertyListPage properties={properties} managers={managers} />} />
-            <Route path="/properties/:id" element={<PropertyDetailPage properties={properties} managers={managers} estimates={estimates} />} />
+            <Route path="/properties/:id" element={<PropertyDetailPage properties={properties} managers={managers} estimates={estimates} activities={activities} onUpdateProperty={handleUpdateProperty} onAddActivity={handleAddActivity} onToggleActivity={handleToggleActivity} />} />
             <Route
               path="/estimates"
               element={

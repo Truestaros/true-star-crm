@@ -111,6 +111,32 @@ create table if not exists crews (
   created_at timestamptz not null default now()
 );
 
+-- ── Activities ────────────────────────────────────────────
+create table if not exists activities (
+  id                   text primary key,
+  type                 text not null default 'note',
+  title                text not null default '',
+  body                 text not null default '',
+  due_date             timestamptz,
+  completed            boolean not null default false,
+  property_id          text references properties(id) on delete cascade,
+  property_manager_id  text references property_managers(id) on delete cascade,
+  estimate_id          text,
+  created_by           text not null default '',
+  created_at           timestamptz not null default now(),
+  updated_at           timestamptz not null default now()
+);
+
+create index if not exists activities_property_id_idx on activities(property_id);
+create index if not exists activities_pm_id_idx on activities(property_manager_id);
+
+-- ── Property Measurements (on properties table) ────────────
+alter table properties add column if not exists turf_sq_ft     numeric not null default 0;
+alter table properties add column if not exists bed_area_sq_ft numeric not null default 0;
+alter table properties add column if not exists hardscape_sq_ft numeric not null default 0;
+alter table properties add column if not exists irrigation_zones integer not null default 0;
+alter table properties add column if not exists lot_sq_ft      numeric not null default 0;
+
 -- ── App Settings (single-row) ──────────────────────────────
 create table if not exists app_settings (
   id       text primary key default 'singleton',
@@ -127,6 +153,7 @@ alter table estimator_models enable row level security;
 alter table work_tickets enable row level security;
 alter table crews enable row level security;
 alter table app_settings enable row level security;
+alter table activities enable row level security;
 
 create policy "allow_all_property_managers" on property_managers for all using (true) with check (true);
 create policy "allow_all_properties"        on properties        for all using (true) with check (true);
@@ -136,6 +163,7 @@ create policy "allow_all_estimator_models"  on estimator_models  for all using (
 create policy "allow_all_work_tickets"      on work_tickets      for all using (true) with check (true);
 create policy "allow_all_crews"             on crews             for all using (true) with check (true);
 create policy "allow_all_app_settings"      on app_settings      for all using (true) with check (true);
+create policy "allow_all_activities"        on activities        for all using (true) with check (true);
 
 -- ── Seed Data ──────────────────────────────────────────────
 insert into property_managers (id, first_name, last_name, company_name, email, phone, title, created_at) values

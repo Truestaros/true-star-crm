@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import EditContactModal from './EditContactModal';
 import AddPropertyModal from './AddPropertyModal';
+import ActivityFeed from '../Activities/ActivityFeed';
 
 const tabs = ['overview', 'properties', 'estimates', 'activity'];
 
@@ -10,9 +11,12 @@ function PropertyManagerDetail({
   properties,
   notes,
   estimates,
+  activities = [],
   onUpdateManager,
   onAddNote,
   onAddProperty,
+  onAddActivity,
+  onToggleActivity,
 }) {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -21,6 +25,11 @@ function PropertyManagerDetail({
   const [showEdit, setShowEdit] = useState(false);
   const [showAddProperty, setShowAddProperty] = useState(false);
   const [noteText, setNoteText] = useState('');
+
+  const managerActivities = useMemo(
+    () => activities.filter((a) => a.propertyManagerId === id).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
+    [activities, id]
+  );
 
   const managerNotes = useMemo(() => {
     return notes
@@ -169,9 +178,12 @@ function PropertyManagerDetail({
 
         {activeTab === 'activity' && (
           <div className="tab-panel">
-            <p className="empty">
-              Activity tracking coming soon - emails, calls, meetings will appear here
-            </p>
+            <ActivityFeed
+              activities={managerActivities}
+              propertyManagerId={id}
+              onAdd={onAddActivity}
+              onToggleComplete={onToggleActivity}
+            />
           </div>
         )}
 

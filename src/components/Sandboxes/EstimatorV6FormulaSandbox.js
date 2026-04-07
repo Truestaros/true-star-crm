@@ -668,6 +668,74 @@ function EstimatorV6Sandbox({ properties = [], managers = [], onSaveEstimate }) 
     updateModel((prev) => ({ ...prev, sections: [...prev.sections, newSection] }));
   }
 
+  // ── Catalog Import ───────────────────────────────────────────────────────────
+  const [showCatalog, setShowCatalog] = useState(false);
+  const [catalogItems, setCatalogItems] = useState([]);
+  const [catalogSel, setCatalogSel] = useState(new Set());
+  const [catalogSectionName, setCatalogSectionName] = useState('');
+  const [catalogFrequency, setCatalogFrequency] = useState(1);
+
+  function openCatalog() {
+    try {
+      const raw = localStorage.getItem('tsos-catalog-items-v1');
+      const parsed = raw ? JSON.parse(raw) : [];
+      setCatalogItems(Array.isArray(parsed) ? parsed : []);
+    } catch {
+      setCatalogItems([]);
+    }
+    setCatalogSel(new Set());
+    setCatalogSectionName('');
+    setCatalogFrequency(1);
+    setShowCatalog(true);
+  }
+
+  function toggleCatalogItem(itemId) {
+    setCatalogSel((prev) => {
+      const next = new Set(prev);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
+  }
+
+  function insertFromCatalog() {
+    if (catalogSel.size === 0) return;
+    const selected = catalogItems.filter((item) => catalogSel.has(item.id));
+    const newSection = {
+      id: uid('sec'),
+      name: catalogSectionName || 'Catalog Section',
+      scopeName: catalogSectionName || 'Catalog Section',
+      scopeCollapsed: false,
+      collapsed: false,
+      complexityPct: 0,
+      taxRate: DEFAULT_TAX_RATE,
+      frequency: Math.max(1, Number(catalogFrequency) || 1),
+      items: selected.map((item) => ({
+        id: uid('item'),
+        name: item.name || 'Item',
+        quantity: Number(item.defaultQty) || 1,
+        unit: item.unit || 'ea',
+        hours: Number(item.defaultHours) || 0,
+        unitCost: Number(item.defaultUnitCost) || 0,
+        laborCategory: item.laborCategory || null,
+        gmPct: Number(item.defaultGmPct) || 55,
+        overheadPct: Number(item.defaultOverheadPct) || 40,
+      })),
+    };
+    updateModel((prev) => ({ ...prev, sections: [...prev.sections, newSection] }));
+    setShowCatalog(false);
+  }
+
+  const catalogByTrade = useMemo(() => {
+    const groups = {};
+    catalogItems.forEach((item) => {
+      const trade = item.trade || 'general';
+      if (!groups[trade]) groups[trade] = [];
+      groups[trade].push(item);
+    });
+    return groups;
+  }, [catalogItems]);
+
   function updateItemFromFormula(sectionId, itemId, field, rawValue) {
     const value = parseFloat(rawValue);
     if (!Number.isFinite(value)) return;
@@ -1511,7 +1579,76 @@ function EstimatorV6Sandbox({ properties = [], managers = [], onSaveEstimate }) 
               <Plus size={14} />
               Add Section
             </button>
+            <button type="button" className="add-section-btn" onClick={openCatalog}>
+              <PlusCircle size={14} />
+              From Catalog
+            </button>
           </div>
+
+          {showCatalog && (
+            <div className="catalog-drawer">
+              <div className="catalog-drawer-header">
+                <h3>Insert from Service Catalog</h3>
+                <button type="button" className="ghost" onClick={() => setShowCatalog(false)}>✕ Close</button>
+              </div>
+              <div className="catalog-drawer-config">
+                <label>
+                  Section Name
+                  <input
+                    type="text"
+                    value={catalogSectionName}
+                    onChange={(e) => setCatalogSectionName(e.target.value)}
+                    placeholder="e.g. Turf Maintenance"
+                  />
+                </label>
+                <label>
+                  Visits/Year
+                  <input
+                    type="number"
+                    min="1"
+                    max="52"
+                    value={catalogFrequency}
+                    onChange={(e) => setCatalogFrequency(Number(e.target.value) || 1)}
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={insertFromCatalog}
+                  disabled={catalogSel.size === 0}
+                >
+                  Insert {catalogSel.size > 0 ? `(${catalogSel.size})` : ''} as Section
+                </button>
+              </div>
+              <div className="catalog-drawer-body">
+                {Object.entries(catalogByTrade).map(([trade, items]) => (
+                  <div key={trade} className="catalog-trade-group">
+                    <div className="catalog-trade-label">{trade.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}</div>
+                    {items.map((item) => (
+                      <label key={item.id} className={`catalog-item-row${catalogSel.has(item.id) ? ' selected' : ''}`}>
+                        <input
+                          type="checkbox"
+                          checked={catalogSel.has(item.id)}
+                          onChange={() => toggleCatalogItem(item.id)}
+                        />
+                        <span className="catalog-item-name">{item.name}</span>
+                        <span className="catalog-item-meta">
+                          {item.defaultQty > 0 ? `${item.defaultQty} ${item.unit || 'ea'}` : ''}
+                          {item.defaultHours > 0 ? ` · ${item.defaultHours}h` : ''}
+                          {item.defaultUnitCost > 0 ? ` · $${Number(item.defaultUnitCost).toFixed(2)}` : ''}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                ))}
+                {catalogItems.length === 0 && (
+                  <p style={{ color: 'var(--muted)', padding: 16 }}>
+                    No catalog items found. Add items in the Service Catalog page first.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         <aside className="v5-summary">

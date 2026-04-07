@@ -175,6 +175,27 @@ export async function saveCrewsToDb(crews) {
   return crews;
 }
 
+// ── Activities ─────────────────────────────────────────────────────────────
+
+export async function getActivities() {
+  const { data, error } = await supabase
+    .from('activities')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (error) return [];
+  return snakeToCamel(data);
+}
+
+export async function createActivity(activity) {
+  const row = camelToSnake({ ...activity, updatedAt: new Date().toISOString() });
+  return query(supabase.from('activities').insert(row).select().single());
+}
+
+export async function updateActivity(id, changes) {
+  const row = camelToSnake({ ...changes, updatedAt: new Date().toISOString() });
+  return query(supabase.from('activities').update(row).eq('id', id).select().single());
+}
+
 // ── App Settings ───────────────────────────────────────────────────────────
 
 export async function loadSettingsFromDb() {
