@@ -835,18 +835,18 @@ function EstimatorV6Sandbox({ properties = [], managers = [], onSaveEstimate }) 
 
     const settings = loadSettings();
 
-    // Resolve logo: use uploaded logo → brand SVG → text fallback
+    // Resolve logo: use uploaded logo → full wordmark SVG → text fallback
     let resolvedLogoDataUrl = settings.logoDataUrl && settings.logoDataUrl.startsWith('data:image/')
       ? settings.logoDataUrl
       : null;
-    // True Star SVG viewBox is 2130 wide × 2310 tall — aspect ratio ≈ 0.922 (slightly portrait)
-    const BRAND_SVG_ASPECT = 2310 / 2130; // height / width
+    // logo-full.svg tight viewBox is 7050 wide × 2470 tall — landscape aspect ratio ≈ 2.854
+    const BRAND_SVG_ASPECT = 2470 / 7050; // height / width (< 1, landscape)
     if (!resolvedLogoDataUrl) {
       try {
         resolvedLogoDataUrl = await new Promise((resolve) => {
           const img = new Image();
-          const cw = 240;
-          const ch = Math.round(cw * BRAND_SVG_ASPECT); // 260 — preserves portrait ratio
+          const cw = 1024;
+          const ch = Math.round(cw * BRAND_SVG_ASPECT); // ~359 — preserves landscape ratio
           img.onload = () => {
             const canvas = document.createElement('canvas');
             canvas.width = cw;
@@ -856,7 +856,7 @@ function EstimatorV6Sandbox({ properties = [], managers = [], onSaveEstimate }) 
             resolve(canvas.toDataURL('image/png'));
           };
           img.onerror = () => resolve(null);
-          img.src = '/logo.svg';
+          img.src = '/logo-full.svg';
         });
       } catch {
         resolvedLogoDataUrl = null;
@@ -880,15 +880,17 @@ function EstimatorV6Sandbox({ properties = [], managers = [], onSaveEstimate }) 
     const contractEndDate = model.contractEndDate || oneYearLaterMinusOneDay(contractStartDate);
     const agreementYear = Number.parseInt(contractStartDate.slice(0, 4), 10) || new Date().getFullYear();
 
+    const HEADER_H = 90;
     doc.setFillColor(...headerBg);
-    doc.rect(0, 0, pageWidth, 78, 'F');
+    doc.rect(0, 0, pageWidth, HEADER_H, 'F');
     doc.setDrawColor(...mutedBorder);
-    doc.line(margin, 78, pageWidth - margin, 78);
+    doc.line(margin, HEADER_H, pageWidth - margin, HEADER_H);
 
-    // Logo dimensions — brand mark is portrait (2130 × 2310 viewBox), render at 48pt tall
-    const logoHeight = 48;
-    const logoWidth = Math.round(logoHeight / BRAND_SVG_ASPECT); // ~44pt wide
-    const logoY = Math.round((78 - logoHeight) / 2); // vertically centered in 78pt header
+    // Logo dimensions — wordmark is landscape (7050 × 2470 tight viewBox)
+    // Fit into left portion of header: max ~200pt wide, height scales from ratio
+    const logoWidth = 200;
+    const logoHeight = Math.round(logoWidth * BRAND_SVG_ASPECT); // ~70pt tall
+    const logoY = Math.round((90 - logoHeight) / 2); // vertically centered in 90pt header
     try {
       if (resolvedLogoDataUrl) {
         doc.addImage(resolvedLogoDataUrl, 'PNG', margin, logoY, logoWidth, logoHeight);
@@ -907,30 +909,35 @@ function EstimatorV6Sandbox({ properties = [], managers = [], onSaveEstimate }) 
       doc.setTextColor(0, 0, 0);
     }
 
+    // Proposal info box — right side of header, vertically centered in HEADER_H
+    const propBoxW = 204;
+    const propBoxH = 64;
+    const propBoxX = pageWidth - margin - propBoxW;
+    const propBoxY = Math.round((HEADER_H - propBoxH) / 2);
     doc.setFillColor(255, 255, 255);
     doc.setDrawColor(...mutedBorder);
-    doc.roundedRect(pageWidth - 240, 22, 204, 56, 4, 4, 'FD');
+    doc.roundedRect(propBoxX, propBoxY, propBoxW, propBoxH, 4, 4, 'FD');
     doc.setFillColor(...secondaryRgb);
-    doc.roundedRect(pageWidth - 240, 22, 204, 20, 4, 4, 'F');
+    doc.roundedRect(propBoxX, propBoxY, propBoxW, 22, 4, 4, 'F');
     doc.setTextColor(...bandTextRgb);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(11);
-    doc.text(`Proposal #${model.estimateNumber || ''}`, pageWidth - 138, 36, { align: 'center' });
+    doc.text(`Proposal #${model.estimateNumber || ''}`, propBoxX + propBoxW / 2, propBoxY + 14.5, { align: 'center' });
     doc.setTextColor(0, 0, 0);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
-    doc.text('Date', pageWidth - 226, 55);
+    doc.text('Date', propBoxX + 10, propBoxY + 36);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
-    doc.text(formatUiDate(proposalDate), pageWidth - 184, 55);
+    doc.text(formatUiDate(proposalDate), propBoxX + 58, propBoxY + 36);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
-    doc.text('Net Terms', pageWidth - 226, 70);
+    doc.text('Net Terms', propBoxX + 10, propBoxY + 52);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
-    doc.text(netPaymentTermLabel(summary.netPaymentTerm), pageWidth - 170, 70);
+    doc.text(netPaymentTermLabel(summary.netPaymentTerm), propBoxX + 58, propBoxY + 52);
 
-    const boxTop = 96;
+    const boxTop = HEADER_H + 10;
     const boxGap = 16;
     const boxWidth = (pageWidth - margin * 2 - boxGap) / 2;
     const bodyHeight = 92;
