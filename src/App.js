@@ -5,11 +5,14 @@ import {
   Users,
   LogOut,
   Layers,
+  FileText,
+  Plus,
   AlertTriangle,
   CalendarDays,
   Settings as SettingsIcon,
   ClipboardList,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { BrowserRouter, NavLink, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import { v4 as uuid } from 'uuid';
 import './App.css';
@@ -58,6 +61,24 @@ function getActiveViewFromPath(pathname) {
   if (pathname.startsWith('/work-tickets')) return 'work-tickets';
   if (pathname.startsWith('/settings')) return 'settings';
   return 'pipeline';
+}
+
+// Rendered inside BrowserRouter so useNavigate works
+function NavNewEstimateButton({ setActiveView }) {
+  const navigate = useNavigate();
+  return (
+    <button
+      type="button"
+      className="nav-new-estimate-btn"
+      onClick={() => {
+        setActiveView('estimator');
+        navigate('/estimator?new=1');
+      }}
+    >
+      <Plus size={15} />
+      <span className="nav-label">New Estimate</span>
+    </button>
+  );
 }
 
 function RouteSync({ onPathChange }) {
@@ -410,7 +431,7 @@ function App() {
 
   const headerTitle = {
     pipeline: 'Deal Pipeline',
-    'property-managers': 'Property Managers',
+    'property-managers': 'Contacts',
     properties: 'Properties',
     estimates: 'Estimates',
     'service-catalog': 'Service Catalog',
@@ -418,15 +439,15 @@ function App() {
     'crew-schedule': 'Crew Schedule',
     'work-tickets': 'Work Tickets',
     settings: 'Settings',
-  }[activeView] || 'Commercial CRM';
+  }[activeView] || 'True Star CRM';
 
   const headerSubtitle = {
-    pipeline: 'Kanban view of all active deals and pipeline value.',
-    'property-managers': 'Contacts, notes, and portfolios for every manager.',
-    properties: 'All commercial sites — measurements, estimates, and activity.',
-    estimates: 'All proposals across every property and manager.',
-    'service-catalog': 'Define services, pricing, and formulas used in estimates.',
-    estimator: 'Build and price proposals line by line.',
+    pipeline: 'Track open deals by stage and weighted pipeline value.',
+    'property-managers': 'Property managers, contacts, and their portfolios.',
+    properties: 'Commercial sites — measurements, estimates, and activity.',
+    estimates: 'All proposals across every property and contact.',
+    'service-catalog': 'Build the catalog of services and scope templates used in estimates.',
+    estimator: 'Price proposals line by line with margin and cost controls.',
     'crew-schedule': 'Schedule crew by day and property.',
     'work-tickets': 'Active work orders and budget vs. actual tracking.',
     settings: 'Business info, branding, and app preferences.',
@@ -463,25 +484,35 @@ function App() {
           </div>
 
           <nav>
-            <NavLink className={({ isActive }) => (isActive ? 'active' : '')} to="/" onClick={() => setActiveView('pipeline')}>
+            {/* ── SALES ── */}
+            <div className="nav-section-label"><span className="nav-label">Sales</span></div>
+            <NavLink className={({ isActive }) => (isActive ? 'active' : '')} end to="/" onClick={() => setActiveView('pipeline')}>
               <LayoutGrid size={18} />
               <span className="nav-label">Pipeline</span>
             </NavLink>
-            <div className="nav-group">
-              <div className="nav-group-title">
-                <Layers size={18} />
-                <span className="nav-label">Estimates</span>
-              </div>
-              <NavLink className={({ isActive }) => (isActive ? 'active' : '')} to="/estimates" onClick={() => setActiveView('estimates')}>
-                <span className="nav-label">All Estimates</span>
-              </NavLink>
-              <NavLink className={({ isActive }) => (isActive ? 'active' : '')} to="/estimator" onClick={() => setActiveView('estimator')}>
-                <span className="nav-label">Estimator</span>
-              </NavLink>
-              <NavLink className={({ isActive }) => (isActive ? 'active' : '')} to="/admin/service-catalog" onClick={() => setActiveView('service-catalog')}>
-                <span className="nav-label">Service Catalog</span>
-              </NavLink>
-            </div>
+            <NavLink className={({ isActive }) => (isActive ? 'active' : '')} to="/property-managers" onClick={() => setActiveView('property-managers')}>
+              <Users size={18} />
+              <span className="nav-label">Contacts</span>
+            </NavLink>
+            <NavLink className={({ isActive }) => (isActive ? 'active' : '')} to="/properties" onClick={() => setActiveView('properties')}>
+              <Building2 size={18} />
+              <span className="nav-label">Properties</span>
+            </NavLink>
+
+            {/* ── ESTIMATING ── */}
+            <div className="nav-section-label"><span className="nav-label">Estimating</span></div>
+            <NavLink className={({ isActive }) => (isActive ? 'active' : '')} to="/estimates" onClick={() => setActiveView('estimates')}>
+              <FileText size={18} />
+              <span className="nav-label">Estimates</span>
+            </NavLink>
+            <NavNewEstimateButton setActiveView={setActiveView} />
+            <NavLink className={({ isActive }) => (isActive ? 'active' : '')} to="/admin/service-catalog" onClick={() => setActiveView('service-catalog')}>
+              <Layers size={18} />
+              <span className="nav-label">Service Catalog</span>
+            </NavLink>
+
+            {/* ── OPERATIONS ── */}
+            <div className="nav-section-label"><span className="nav-label">Operations</span></div>
             <NavLink className={({ isActive }) => (isActive ? 'active' : '')} to="/work-tickets" onClick={() => setActiveView('work-tickets')}>
               <ClipboardList size={18} />
               <span className="nav-label">Work Tickets</span>
@@ -490,14 +521,9 @@ function App() {
               <CalendarDays size={18} />
               <span className="nav-label">Crew Schedule</span>
             </NavLink>
-            <NavLink className={({ isActive }) => (isActive ? 'active' : '')} to="/property-managers" onClick={() => setActiveView('property-managers')}>
-              <Users size={18} />
-              <span className="nav-label">Property Managers</span>
-            </NavLink>
-            <NavLink className={({ isActive }) => (isActive ? 'active' : '')} to="/properties" onClick={() => setActiveView('properties')}>
-              <Building2 size={18} />
-              <span className="nav-label">Properties</span>
-            </NavLink>
+
+            {/* ── ACCOUNT ── */}
+            <div className="nav-section-label"><span className="nav-label">Account</span></div>
             <NavLink className={({ isActive }) => (isActive ? 'active' : '')} to="/settings" onClick={() => setActiveView('settings')}>
               <SettingsIcon size={18} />
               <span className="nav-label">Settings</span>

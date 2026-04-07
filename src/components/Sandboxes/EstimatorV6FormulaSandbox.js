@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import NewEstimateWizard from '../Estimates/NewEstimateWizard';
 import { CheckCircle, ChevronDown, ChevronRight, FileText, GripVertical, MoreVertical, Plus, PlusCircle } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -223,11 +224,13 @@ function createDefaultModel() {
   return {
     estimateId: uid('est-v6'),
     estimateNumber: '378',
-    estimateTitle: 'Design Build Front Entry',
-    locationName: 'Station Place',
-    propertyAddress: '1423 Elm Street, Dallas, TX 75201',
+    estimateTitle: '',
+    locationName: '',
+    propertyAddress: '',
     status: 'draft',
     estimatorNotes: '',
+    jobType: 'maintenance_contract',
+    scopeTemplateId: null,
     contractTermMonths: normalizePaymentTermMonths(defaults.contractTermMonths),
     minMarginGatePct: defaults.minMarginGatePct,
     netPaymentTerm: DEFAULT_NET_PAYMENT_TERM,
@@ -304,9 +307,13 @@ function loadModel() {
       estimateId: uid('est-v6'),
       propertyAddress: '',
       status: 'draft',
+      jobType: 'maintenance_contract',
+      scopeTemplateId: null,
       minMarginGatePct: defaults.minMarginGatePct,
       laborRates: { maintenance: 45, planting: 60, irrigation: 75 },
       ...parsed,
+      jobType: parsed.jobType || 'maintenance_contract',
+      scopeTemplateId: parsed.scopeTemplateId || null,
       contractTermMonths: normalizePaymentTermMonths(
         parsed.contractTermMonths ?? defaults.contractTermMonths,
       ),
@@ -448,10 +455,11 @@ function applyPropertyPrefill(model, property, manager, forceOverwrite = false) 
   };
 }
 
-function createPdfRows(sections) {
+function createPdfRows(sections, jobType = 'maintenance_contract') {
+  const isOneTime = jobType === 'one_time_service';
   const allRows = [];
   sections.forEach((section) => {
-    const frequency = Math.max(1, Math.round(Number(section.frequency || 1)));
+    const frequency = isOneTime ? 1 : Math.max(1, Math.round(Number(section.frequency || 1)));
     const optionalSection = /optional/i.test(section.name || '') || /optional/i.test(section.scopeName || '');
     section.computedItems.forEach((item) => {
       const costPerOccurrence = Number(item.totalPrice || 0);
@@ -473,10 +481,58 @@ function createPdfRows(sections) {
   };
 }
 
+// Converts a catalog scope template into estimator sections
+function templateToEstimatorSections(template) {
+  const DEFAULT_TAX = 0.0825;
+  return (template.sections || []).map((sec) => ({
+    id: uid('sec'),
+    name: sec.name || 'Section',
+    scopeName: sec.scopeName || sec.name || 'Section',
+    scopeCollapsed: false,
+    collapsed: false,
+    complexityPct: Number(sec.complexityPct) || 0,
+    taxRate: Number(sec.taxRate) || DEFAULT_TAX,
+    frequency: Number(sec.frequency) || 1,
+    items: (sec.items || []).map((item) => ({
+      id: uid('item'),
+      name: item.name || 'Item',
+      quantity: Number(item.quantity) || 1,
+      unit: item.unit || 'ea',
+      hours: Number(item.hours) || 0,
+      unitCost: Number(item.unitCost) || 0,
+      laborCategory: item.laborCategory || null,
+      gmPct: Number(item.gmPct) || 55,
+      overheadPct: Number(item.overheadPct) || 40,
+    })),
+  }));
+}
+
 function EstimatorV6Sandbox({ properties = [], managers = [], onSaveEstimate }) {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const lastQueryPrefillIdRef = useRef('');
   const [model, setModel] = useState(loadModel);
+
+  // Show wizard when ?new=1 is in the URL
+  const showWizard = searchParams.get('new') === '1';
+
+  function handleWizardConfirm(jobType, template) {
+    const defaults = (() => { try { return loadSettings(); } catch { return {}; } })();
+    const today = todayDateInputValue();
+    const freshModel = {
+      ...createDefaultModel(),
+      estimateId: uid('est-v6'),
+      jobType,
+      scopeTemplateId: template?.id || null,
+      sections: template ? templateToEstimatorSections(template) : [],
+    };
+    setModel(freshModel);
+    setSearchParams({});
+  }
+
+  function handleWizardCancel() {
+    navigate('/estimates');
+  }
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(model));
@@ -825,7 +881,8 @@ function EstimatorV6Sandbox({ properties = [], managers = [], onSaveEstimate }) 
   }
 
   async function handleDownloadPdf() {
-    const { fixedRows, optionalRows } = createPdfRows(sections);
+    const isOneTime = model.jobType === 'one_time_service';
+    const { fixedRows, optionalRows } = createPdfRows(sections, model.jobType);
     const annualMaintenancePrice = fixedRows.reduce((sum, row) => sum + row.annualCost, 0);
 
     if (fixedRows.length === 0 && optionalRows.length === 0) {
@@ -982,12 +1039,17 @@ function EstimatorV6Sandbox({ properties = [], managers = [], onSaveEstimate }) 
     doc.setTextColor(...bandTextRgb);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(15);
-    doc.text(`Landscape Maintenance Agreement ${agreementYear}`, pageWidth / 2, agreementTop + 15, { align: 'center' });
+    const agreementBannerText = isOneTime
+      ? `Service Proposal — ${model.estimateTitle || model.locationName || 'One Time Service'}`
+      : `Landscape Maintenance Agreement ${agreementYear}`;
+    doc.text(agreementBannerText, pageWidth / 2, agreementTop + 15, { align: 'center' });
     doc.setTextColor(0, 0, 0);
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
-    const agreementText = `This agreement is for a one (1) year period, beginning ${formatUiDate(contractStartDate)} and ending ${formatUiDate(contractEndDate)} and shall be automatically renewed for successive equal periods unless terminated by either party by not less than thirty (30) days written notice prior to the end of the specified period.`;
+    const agreementText = isOneTime
+      ? `This proposal covers the one-time services listed below. Work will be performed in a professional and workmanlike manner consistent with industry standards. Prices are valid for 30 days from the proposal date of ${formatUiDate(proposalDate)}.`
+      : `This agreement is for a one (1) year period, beginning ${formatUiDate(contractStartDate)} and ending ${formatUiDate(contractEndDate)} and shall be automatically renewed for successive equal periods unless terminated by either party by not less than thirty (30) days written notice prior to the end of the specified period.`;
     const wrappedAgreement = doc.splitTextToSize(agreementText, pageWidth - margin * 2);
     doc.text(wrappedAgreement, margin, agreementTop + 36);
 
@@ -1055,18 +1117,25 @@ function EstimatorV6Sandbox({ properties = [], managers = [], onSaveEstimate }) 
     doc.setFontSize(11);
     doc.setDrawColor(...mutedBorder);
     doc.line(margin, cursorY - 8, pageWidth - margin, cursorY - 8);
-    doc.text('Annual Maintenance Price', margin, cursorY + 4);
+    doc.text(isOneTime ? 'Project Total' : 'Annual Maintenance Price', margin, cursorY + 4);
     doc.text(formatCurrency(annualMaintenancePrice), pageWidth - margin, cursorY + 4, { align: 'right' });
     cursorY += 20;
 
     ensurePageSpace(58);
     const statCardGap = 8;
-    const statCardWidth = (pageWidth - margin * 2 - statCardGap * 2) / 3;
-    const statCards = [
-      { label: 'Annual Maintenance', value: formatCurrency(annualMaintenancePrice) },
-      { label: 'Payment Term', value: `${summary.contractTermMonths} months` },
-      { label: 'Per-Month Billing', value: formatCurrency(summary.monthlyPaymentWithTax) },
-    ];
+    const statCardWidth = isOneTime
+      ? (pageWidth - margin * 2 - statCardGap) / 2
+      : (pageWidth - margin * 2 - statCardGap * 2) / 3;
+    const statCards = isOneTime
+      ? [
+          { label: 'Project Total', value: formatCurrency(annualMaintenancePrice) },
+          { label: 'Net Terms', value: netPaymentTermLabel(summary.netPaymentTerm) },
+        ]
+      : [
+          { label: 'Annual Maintenance', value: formatCurrency(annualMaintenancePrice) },
+          { label: 'Payment Term', value: `${summary.contractTermMonths} months` },
+          { label: 'Per-Month Billing', value: formatCurrency(summary.monthlyPaymentWithTax) },
+        ];
     statCards.forEach((card, index) => {
       const x = margin + index * (statCardWidth + statCardGap);
       doc.setFillColor(...cardBg);
@@ -1106,7 +1175,7 @@ function EstimatorV6Sandbox({ properties = [], managers = [], onSaveEstimate }) 
       cursorY = (doc.lastAutoTable?.finalY || cursorY) + 12;
     }
 
-    if (summary.contractTermMonths === 12 && summary.totalWithTax > 0) {
+    if (!isOneTime && summary.contractTermMonths === 12 && summary.totalWithTax > 0) {
       const monthlyRows = buildMonthlyScheduleRows(
         contractStartDate,
         12,
@@ -1257,11 +1326,41 @@ function EstimatorV6Sandbox({ properties = [], managers = [], onSaveEstimate }) 
 
   return (
     <div className="v5-shell">
+      {/* New Estimate Wizard */}
+      {showWizard && (
+        <NewEstimateWizard
+          onConfirm={handleWizardConfirm}
+          onCancel={handleWizardCancel}
+        />
+      )}
+
       <header className="v5-top-bar">
-        <div className="v5-opportunities">Opportunities</div>
+        <div className="v5-opportunities">Estimates</div>
         <div className="v5-breadcrumbs">
-          <span className="v5-tab">OPPORTUNITY #{model.estimateNumber}</span>
-          <span className="v5-tab active">ESTIMATE</span>
+          <span className="v5-tab">#{model.estimateNumber}</span>
+          <span className="v5-tab active">
+            {model.jobType === 'one_time_service' ? 'ONE TIME SERVICE' : 'MAINTENANCE CONTRACT'}
+          </span>
+        </div>
+        <div className="v5-topbar-actions">
+          <button
+            type="button"
+            className="v5-job-type-toggle"
+            title="Change job type"
+            onClick={() => updateModel((prev) => ({
+              ...prev,
+              jobType: prev.jobType === 'maintenance_contract' ? 'one_time_service' : 'maintenance_contract',
+            }))}
+          >
+            {model.jobType === 'one_time_service' ? '🔧 One Time Service' : '📋 Maintenance Contract'}
+          </button>
+          <button
+            type="button"
+            className="v5-new-estimate-btn"
+            onClick={() => navigate('/estimator?new=1')}
+          >
+            + New Estimate
+          </button>
         </div>
       </header>
 
@@ -1693,22 +1792,24 @@ function EstimatorV6Sandbox({ properties = [], managers = [], onSaveEstimate }) 
           <div className="notes-block">
             <h3>Settings</h3>
             <div className="summary-settings-grid">
-              <label className="summary-settings-field">
-                Payment Term
-                <select
-                  value={summary.contractTermMonths}
-                  onChange={(e) => {
-                    const months = normalizePaymentTermMonths(e.target.value);
-                    updateModel((prev) => ({ ...prev, contractTermMonths: months }));
-                  }}
-                >
-                  {PAYMENT_TERM_OPTIONS.map((months) => (
-                    <option key={months} value={months}>
-                      {months} {months === 1 ? 'month' : 'months'}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              {model.jobType === 'maintenance_contract' && (
+                <label className="summary-settings-field">
+                  Payment Term
+                  <select
+                    value={summary.contractTermMonths}
+                    onChange={(e) => {
+                      const months = normalizePaymentTermMonths(e.target.value);
+                      updateModel((prev) => ({ ...prev, contractTermMonths: months }));
+                    }}
+                  >
+                    {PAYMENT_TERM_OPTIONS.map((months) => (
+                      <option key={months} value={months}>
+                        {months} {months === 1 ? 'month' : 'months'}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
               <label className="summary-settings-field">
                 Net Terms
                 <select
@@ -1731,22 +1832,26 @@ function EstimatorV6Sandbox({ properties = [], managers = [], onSaveEstimate }) 
                   onChange={(e) => updateModel((prev) => ({ ...prev, proposalDate: e.target.value }))}
                 />
               </label>
-              <label className="summary-settings-field">
-                Contract Start
-                <input
-                  type="date"
-                  value={model.contractStartDate || ''}
-                  onChange={(e) => updateModel((prev) => ({ ...prev, contractStartDate: e.target.value }))}
-                />
-              </label>
-              <label className="summary-settings-field">
-                Contract End
-                <input
-                  type="date"
-                  value={model.contractEndDate || ''}
-                  onChange={(e) => updateModel((prev) => ({ ...prev, contractEndDate: e.target.value }))}
-                />
-              </label>
+              {model.jobType === 'maintenance_contract' && (
+                <>
+                  <label className="summary-settings-field">
+                    Contract Start
+                    <input
+                      type="date"
+                      value={model.contractStartDate || ''}
+                      onChange={(e) => updateModel((prev) => ({ ...prev, contractStartDate: e.target.value }))}
+                    />
+                  </label>
+                  <label className="summary-settings-field">
+                    Contract End
+                    <input
+                      type="date"
+                      value={model.contractEndDate || ''}
+                      onChange={(e) => updateModel((prev) => ({ ...prev, contractEndDate: e.target.value }))}
+                    />
+                  </label>
+                </>
+              )}
               <div className="summary-settings-note">
                 Margin Gate: <strong>{summary.minMarginGatePct.toFixed(2)}%</strong> (set default in CRM Settings)
               </div>
@@ -1768,11 +1873,15 @@ function EstimatorV6Sandbox({ properties = [], managers = [], onSaveEstimate }) 
 
           <div className="summary-row"><span>Total Price</span><strong>{formatCurrency(summary.totalPrice)}</strong></div>
           <div className="summary-row"><span>Total w/ Tax</span><strong>{formatCurrency(summary.totalWithTax)}</strong></div>
-          <div className="summary-row"><span>Contract Start</span><strong>{formatUiDate(model.contractStartDate) || '-'}</strong></div>
-          <div className="summary-row"><span>Contract End</span><strong>{formatUiDate(model.contractEndDate) || '-'}</strong></div>
-          <div className="summary-row"><span>Payment Term</span><strong>{summary.contractTermMonths} {summary.contractTermMonths === 1 ? 'month' : 'months'}</strong></div>
-          <div className="summary-row"><span>Per-Month Billing</span><strong>{formatCurrency(summary.monthlyPaymentWithTax)}</strong></div>
-          {summary.contractTermMonths === 12 && monthlySchedulePreview.length > 0 && (
+          {model.jobType === 'maintenance_contract' && (
+            <>
+              <div className="summary-row"><span>Contract Start</span><strong>{formatUiDate(model.contractStartDate) || '-'}</strong></div>
+              <div className="summary-row"><span>Contract End</span><strong>{formatUiDate(model.contractEndDate) || '-'}</strong></div>
+              <div className="summary-row"><span>Payment Term</span><strong>{summary.contractTermMonths} {summary.contractTermMonths === 1 ? 'month' : 'months'}</strong></div>
+              <div className="summary-row"><span>Per-Month Billing</span><strong>{formatCurrency(summary.monthlyPaymentWithTax)}</strong></div>
+            </>
+          )}
+          {model.jobType === 'maintenance_contract' && summary.contractTermMonths === 12 && monthlySchedulePreview.length > 0 && (
             <div className="monthly-preview-block">
               <h3>12-Month Billing Preview</h3>
               <div className="monthly-preview-grid">

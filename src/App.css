@@ -2326,3 +2326,377 @@ label.checkbox {
   color: var(--muted);
   white-space: nowrap;
 }
+
+/* ============================================================================
+   NAV SECTION LABELS & NEW ESTIMATE BUTTON
+   ========================================================================== */
+
+.nav-section-label {
+  display: flex;
+  align-items: center;
+  padding: 16px 14px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  pointer-events: none;
+  user-select: none;
+}
+
+.nav-section-label:first-child {
+  padding-top: 8px;
+}
+
+.crm-sidebar.collapsed .nav-section-label {
+  padding: 12px 8px 4px;
+  justify-content: center;
+}
+
+.crm-sidebar.collapsed .nav-section-label span {
+  display: none;
+}
+
+.nav-new-estimate-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+}
+
+.nav-new-estimate-btn:hover {
+  background: var(--accent-dark);
+}
+
+.crm-sidebar.collapsed .nav-new-estimate-btn {
+  justify-content: center;
+  padding: 10px 8px;
+}
+
+/* ============================================================================
+   ESTIMATOR TOP BAR ADDITIONS
+   ========================================================================== */
+
+.v5-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.v5-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.v5-job-type-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: var(--surface-2);
+  border: 1.5px solid var(--border);
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  color: var(--text);
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.v5-job-type-toggle:hover {
+  border-color: var(--accent);
+  background: var(--accent-hover);
+}
+
+.v5-new-estimate-btn {
+  padding: 7px 16px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.v5-new-estimate-btn:hover {
+  background: var(--accent-dark);
+}
+
+/* ============================================================================
+   NEW ESTIMATE WIZARD
+   ========================================================================== */
+
+.wizard-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 24px;
+  backdrop-filter: blur(2px);
+}
+
+.wizard-modal {
+  background: var(--surface);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  width: 100%;
+  max-width: 760px;
+  max-height: 90vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.wizard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  z-index: 1;
+}
+
+.wizard-steps {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wizard-step-pill {
+  padding: 4px 14px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
+.wizard-step-pill.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.wizard-step-pill.done {
+  background: var(--surface-2);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.wizard-step-arrow {
+  color: var(--muted);
+  font-size: 18px;
+}
+
+.wizard-close-btn {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: var(--muted);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  line-height: 1;
+}
+
+.wizard-close-btn:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.wizard-body {
+  padding: 28px 24px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.wizard-intro h2 {
+  margin: 0 0 6px;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.wizard-intro p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.wizard-back-btn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0;
+  align-self: flex-start;
+}
+
+.wizard-back-btn:hover {
+  text-decoration: underline;
+}
+
+/* Job type cards */
+.wizard-job-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 580px) {
+  .wizard-job-cards { grid-template-columns: 1fr; }
+}
+
+.wizard-job-card {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  padding: 22px 20px;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+
+.wizard-job-card:hover {
+  border-color: var(--accent);
+  background: var(--accent-hover);
+  box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.08);
+}
+
+.wizard-job-card-icon {
+  font-size: 28px;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.wizard-job-card-body h3 {
+  margin: 0 0 6px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.wizard-job-card-body p {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.wizard-job-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.wizard-job-card-tags span {
+  padding: 2px 10px;
+  background: var(--surface-2);
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+/* Template cards */
+.wizard-template-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.wizard-template-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px 18px;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s, background 0.15s;
+  width: 100%;
+}
+
+.wizard-template-card:hover {
+  border-color: var(--accent);
+  background: var(--accent-hover);
+}
+
+.wizard-template-blank {
+  border-style: dashed;
+}
+
+.wizard-template-card-icon {
+  font-size: 22px;
+  flex-shrink: 0;
+  width: 32px;
+  text-align: center;
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 20px;
+  line-height: 1.4;
+}
+
+.wizard-template-card-body h3 {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.wizard-template-card-body p {
+  margin: 0 0 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.wizard-template-meta {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.wizard-job-type-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  background: var(--accent-hover);
+  color: var(--accent);
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.wizard-no-templates {
+  color: var(--muted);
+  font-size: 13px;
+  padding: 12px 0;
+  margin: 0;
+}
