@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight, Plus, Check, ArrowLeft, Copy, X } from 'lucide-react';
 import mockServiceCatalog from '../../data/mockServiceCatalog.json';
-import './ServiceCatalogV2.css';
+import './EstimatorV6Sandbox.css';
 
 /* ═══════════════════════════════════════════════════
    Constants & Enums

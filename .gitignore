@@ -34,3 +34,4 @@ src/shared/
 tmp-contract.pdf
 tmp-contract.png
 sandboxes/
+.vercel
