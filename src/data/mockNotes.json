@@ -1,0 +1,30 @@
+[
+  {
+    "id": "note-1",
+    "propertyManagerId": "pm-1",
+    "content": "Completed site walk for Northgate Campus. Need irrigation map before final pricing.",
+    "createdAt": "2026-01-12T18:30:00.000Z",
+    "createdBy": "Cameron Davis"
+  },
+  {
+    "id": "note-2",
+    "propertyManagerId": "pm-2",
+    "content": "Riverside Plaza requested weekly bed edging add-on. Update proposal draft.",
+    "createdAt": "2026-01-22T15:10:00.000Z",
+    "createdBy": "Jordan Price"
+  },
+  {
+    "id": "note-3",
+    "propertyManagerId": "pm-4",
+    "content": "Pinecrest portfolio reviewing vendor list next Tuesday. Prepare references.",
+    "createdAt": "2026-01-30T19:05:00.000Z",
+    "createdBy": "Avery Chen"
+  },
+  {
+    "id": "note-4",
+    "propertyManagerId": "pm-5",
+    "content": "Union Station East wants snow response clause in contract. Legal review pending.",
+    "createdAt": "2026-02-02T17:45:00.000Z",
+    "createdBy": "Morgan Lee"
+  }
+]

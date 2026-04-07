@@ -1,0 +1,20 @@
+[
+  {
+    "id": "est-blank",
+    "proposalNumber": "EST-10420",
+    "propertyId": "prop-1",
+    "propertyManagerId": "pm-1",
+    "status": "draft",
+    "contractStartDate": "2026-03-01T00:00:00.000Z",
+    "contractEndDate": "2027-02-28T00:00:00.000Z",
+    "services": [],
+    "subtotalFixed": 0,
+    "subtotalOptional": 0,
+    "annualTotal": 0,
+    "salesTax": 0,
+    "totalWithTax": 0,
+    "monthlyPayment": 0,
+    "createdAt": "2026-02-01T10:00:00.000Z",
+    "updatedAt": "2026-02-01T10:00:00.000Z"
+  }
+]

@@ -1,0 +1,18 @@
+[
+  {"id":"prop-1","name":"Northgate Campus","address":"1200 Northgate Way, Seattle, WA","propertyManagerId":"pm-1","dealStage":"prospecting","value":22000},
+  {"id":"prop-2","name":"Northgate Plaza","address":"881 Northgate Blvd, Seattle, WA","propertyManagerId":"pm-1","dealStage":"proposal","value":34000},
+  {"id":"prop-3","name":"Northgate Logistics Park","address":"75 Meridian Ave N, Seattle, WA","propertyManagerId":"pm-1","dealStage":"negotiation","value":41000},
+  {"id":"prop-16","name":"Paloma Creek","address":"1880 Paloma Creek Dr, Dallas, TX","propertyManagerId":"pm-1","dealStage":"proposal","value":38000},
+  {"id":"prop-4","name":"Riverside Plaza","address":"1200 Riverside Dr, Seattle, WA","propertyManagerId":"pm-2","dealStage":"prospecting","value":26000},
+  {"id":"prop-5","name":"Cascade Business Center","address":"455 Cascade Ave, Seattle, WA","propertyManagerId":"pm-2","dealStage":"proposal","value":30000},
+  {"id":"prop-6","name":"Harborview Medical","address":"201 Harborview Ln, Seattle, WA","propertyManagerId":"pm-3","dealStage":"negotiation","value":45000},
+  {"id":"prop-7","name":"Harborview Annex","address":"19 Denny Way, Seattle, WA","propertyManagerId":"pm-3","dealStage":"won","value":38000},
+  {"id":"prop-8","name":"Pinecrest Commerce Park","address":"900 Pinecrest Rd, Bellevue, WA","propertyManagerId":"pm-4","dealStage":"prospecting","value":19000},
+  {"id":"prop-9","name":"Pinecrest West","address":"615 Westlake Ave, Seattle, WA","propertyManagerId":"pm-4","dealStage":"proposal","value":24000},
+  {"id":"prop-10","name":"Pinecrest Heights","address":"450 Hilltop Dr, Bellevue, WA","propertyManagerId":"pm-4","dealStage":"negotiation","value":28000},
+  {"id":"prop-11","name":"Pinecrest East","address":"712 Eastlake Ave, Seattle, WA","propertyManagerId":"pm-4","dealStage":"lost","value":17000},
+  {"id":"prop-12","name":"Union Station Plaza","address":"100 Union Station Sq, Seattle, WA","propertyManagerId":"pm-5","dealStage":"won","value":50000},
+  {"id":"prop-13","name":"Union Station South","address":"225 Station Way, Seattle, WA","propertyManagerId":"pm-5","dealStage":"proposal","value":32000},
+  {"id":"prop-14","name":"Union Station East","address":"311 Rail Ave, Seattle, WA","propertyManagerId":"pm-5","dealStage":"prospecting","value":21000},
+  {"id":"prop-15","name":"Union Station Annex","address":"42 Rail Spur Rd, Seattle, WA","propertyManagerId":"pm-5","dealStage":"negotiation","value":36000}
+]
