@@ -104,8 +104,35 @@ function RedirectEstimateEditToEstimator() {
   return <Navigate to={`/estimator${query}`} replace />;
 }
 
-function PipelineView({ dashboardKpis, followUpOverdueCount, renewalQueue, pipelineStages, dealsByStage, dealStaleMap, onStageMove }) {
+function getInitials(name) {
+  if (!name) return '?';
+  const parts = name.trim().split(/\s+/);
+  return parts.length >= 2
+    ? `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
+    : parts[0].slice(0, 2).toUpperCase();
+}
+
+function PipelineView({ dashboardKpis, followUpOverdueCount, renewalQueue, pipelineStages, dealsByStage, dealStaleMap, onStageMove, members }) {
   const navigate = useNavigate();
+  const [repFilter, setRepFilter] = useState('all');
+
+  const filteredDealsByStage = useMemo(() => {
+    if (repFilter === 'all') return dealsByStage;
+    const filtered = {};
+    pipelineStages.forEach(({ key }) => {
+      filtered[key] = (dealsByStage[key] || []).filter((d) => d.assignedTo === repFilter);
+    });
+    return filtered;
+  }, [dealsByStage, repFilter, pipelineStages]);
+
+  const assignedReps = useMemo(() => {
+    const names = new Set();
+    pipelineStages.forEach(({ key }) => {
+      (dealsByStage[key] || []).forEach((d) => { if (d.assignedTo) names.add(d.assignedTo); });
+    });
+    return [...names];
+  }, [dealsByStage, pipelineStages]);
+
   return (
     <section className="pipeline-view">
       <section className="kpi-strip">
@@ -122,6 +149,16 @@ function PipelineView({ dashboardKpis, followUpOverdueCount, renewalQueue, pipel
           </article>
         )}
       </section>
+      {assignedReps.length > 0 && (
+        <div className="rep-filter-bar">
+          <button type="button" className={`rep-chip ${repFilter === 'all' ? 'active' : ''}`} onClick={() => setRepFilter('all')}>All Reps</button>
+          {assignedReps.map((name) => (
+            <button key={name} type="button" className={`rep-chip ${repFilter === name ? 'active' : ''}`} onClick={() => setRepFilter(name)}>
+              <span className="rep-chip-badge">{getInitials(name)}</span> {name}
+            </button>
+          ))}
+        </div>
+      )}
       {renewalQueue.length > 0 && (
         <section className="renewal-queue-panel">
           <div className="rq-header">
@@ -149,12 +186,12 @@ function PipelineView({ dashboardKpis, followUpOverdueCount, renewalQueue, pipel
               <div>
                 <h3>{stage.label}</h3>
                 <span className="kanban-sub">
-                  {dealsByStage[stage.key]
+                  {(filteredDealsByStage[stage.key] || [])
                     .reduce((sum, d) => sum + Number(d.value), 0)
                     .toLocaleString(undefined, { style: 'currency', currency: 'USD' })}
                 </span>
               </div>
-              <span>{dealsByStage[stage.key].length}</span>
+              <span>{(filteredDealsByStage[stage.key] || []).length}</span>
             </div>
             <div
               className="kanban-list"
@@ -165,7 +202,7 @@ function PipelineView({ dashboardKpis, followUpOverdueCount, renewalQueue, pipel
                 if (propertyId) onStageMove(propertyId, stage.key);
               }}
             >
-              {dealsByStage[stage.key].map((deal) => (
+              {(filteredDealsByStage[stage.key] || []).map((deal) => (
                 <div
                   key={deal.id}
                   className={`deal-card ${dealStaleMap[deal.id] ? 'deal-card-stale' : ''}`}
@@ -187,7 +224,11 @@ function PipelineView({ dashboardKpis, followUpOverdueCount, renewalQueue, pipel
                   )}
                   <div className="deal-card-footer">
                     <span>{Number(deal.value).toLocaleString(undefined, { style: 'currency', currency: 'USD' })}</span>
-                    <span>{deal.dealStage}</span>
+                    {deal.assignedTo ? (
+                      <span className="deal-rep-badge" title={deal.assignedTo}>{getInitials(deal.assignedTo)}</span>
+                    ) : (
+                      <span className="deal-rep-badge deal-rep-unassigned" title="Unassigned">—</span>
+                    )}
                   </div>
                 </div>
               ))}
@@ -749,6 +790,7 @@ function App() {
                   dealsByStage={dealsByStage}
                   dealStaleMap={dealStaleMap}
                   onStageMove={handleStageMove}
+                  members={appSettings.members}
                 />
               }
             />
