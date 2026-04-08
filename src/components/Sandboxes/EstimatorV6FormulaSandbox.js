@@ -7,6 +7,52 @@ import autoTable from 'jspdf-autotable';
 import '../Estimates/EstimatorV6Sandbox.css';
 import { loadSettings, SETTINGS_STORAGE_KEY } from '../Settings/settingsStorage';
 import { loadTickets, saveTickets } from '../WorkTickets/ticketUtils';
+import swNurseryCatalog from '../../data/swNurseryCatalog.json';
+import mockServiceCatalog from '../../data/mockServiceCatalog.json';
+
+const CATALOG_ITEMS_KEY = 'tsos-catalog-items-v1';
+const SW_TRADE_MAP = { p: 'planting', i: 'irrigation', h: 'hardscape', t: 'turf_care', g: 'general' };
+
+function getCatalogItemsForEstimator() {
+  try {
+    const raw = localStorage.getItem(CATALOG_ITEMS_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+  } catch { /* ignore */ }
+  // Seed on-demand so the estimator works even if ServiceCatalogPage hasn't been visited
+  const nursery = (swNurseryCatalog.items || []).map(([num, name, price, tc]) => ({
+    id: `sw-nursery-${num}`,
+    itemNumber: num,
+    source: 'Southwest Nursery',
+    trade: SW_TRADE_MAP[tc] || 'planting',
+    type: 'materials',
+    name,
+    unit: 'ea',
+    defaultQty: 1,
+    defaultUnitCost: price,
+    defaultHours: 0,
+    laborCategory: null,
+    defaultGmPct: 0,
+    defaultOverheadPct: 0,
+  }));
+  // Minimal mock migration inline
+  const mock = mockServiceCatalog.map((old) => ({
+    id: old.id,
+    trade: ({ turf: 'turf_care', shrubs: 'planting', trees: 'planting', irrigation: 'irrigation', seasonal_color: 'planting', inspections: 'general', optional: 'general' }[old.category] || 'general'),
+    type: old.pricingType === 'per_unit' ? 'materials' : 'labor',
+    name: old.name,
+    unit: old.pricingType === 'hourly' ? 'Hr' : (old.unitLabel || 'ea'),
+    defaultQty: old.pricingType === 'per_unit' ? (old.defaultQuantity || 1) : (old.defaultHours || 1),
+    defaultUnitCost: old.pricingType === 'hourly' ? (old.defaultHourlyRate || 0) : (old.pricingType === 'per_unit' ? (old.defaultUnitCost || 0) : (old.defaultFlatFee || 0)),
+    defaultHours: old.defaultHours || 0,
+    laborCategory: old.pricingType === 'hourly' ? (old.category === 'irrigation' ? 'irrigation' : 'maintenance') : null,
+    defaultGmPct: old.defaultMarkup > 0 ? Math.round(old.defaultMarkup / (100 + old.defaultMarkup) * 100 * 100) / 100 : 0,
+    defaultOverheadPct: 0,
+  }));
+  const seed = [...mock, ...nursery];
+  try { localStorage.setItem(CATALOG_ITEMS_KEY, JSON.stringify(seed)); } catch { /* ignore */ }
+  return seed;
+}
 
 const STORAGE_KEY = 'tsos-estimator-v6-main-v1';
 const LEGACY_STORAGE_PREFIX = 'tsos-estimator-v6-sandbox';
@@ -505,6 +551,49 @@ function templateToEstimatorSections(template) {
   }));
 }
 
+function ContactAutocomplete({ value, managers, onChange, onSelect }) {
+  const [open, setOpen] = useState(false);
+
+  const suggestions = useMemo(() => {
+    if (!value || !value.trim()) return [];
+    const q = value.toLowerCase();
+    return managers
+      .filter((m) => {
+        const full = `${m.firstName || ''} ${m.lastName || ''} ${m.companyName || ''} ${m.email || ''}`.toLowerCase();
+        return full.includes(q);
+      })
+      .slice(0, 8);
+  }, [value, managers]);
+
+  function handleSelect(mgr) {
+    onSelect(mgr);
+    setOpen(false);
+  }
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <input
+        value={value}
+        placeholder="Client contact name"
+        autoComplete="off"
+        onChange={(e) => { onChange(e.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+      />
+      {open && suggestions.length > 0 && (
+        <ul className="contact-autocomplete-list">
+          {suggestions.map((mgr) => (
+            <li key={mgr.id} onMouseDown={() => handleSelect(mgr)}>
+              <span className="contact-ac-name">{mgr.firstName} {mgr.lastName}</span>
+              {mgr.companyName && <span className="contact-ac-company">{mgr.companyName}</span>}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function EstimatorV6Sandbox({ properties = [], managers = [], onSaveEstimate }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -726,18 +815,14 @@ function EstimatorV6Sandbox({ properties = [], managers = [], onSaveEstimate }) 
   const [catalogSel, setCatalogSel] = useState(new Set());
   const [catalogSectionName, setCatalogSectionName] = useState('');
   const [catalogFrequency, setCatalogFrequency] = useState(1);
+  const [catalogSearch, setCatalogSearch] = useState('');
 
   function openCatalog() {
-    try {
-      const raw = localStorage.getItem('tsos-catalog-items-v1');
-      const parsed = raw ? JSON.parse(raw) : [];
-      setCatalogItems(Array.isArray(parsed) ? parsed : []);
-    } catch {
-      setCatalogItems([]);
-    }
+    setCatalogItems(getCatalogItemsForEstimator());
     setCatalogSel(new Set());
     setCatalogSectionName('');
     setCatalogFrequency(1);
+    setCatalogSearch('');
     setShowCatalog(true);
   }
 
@@ -778,15 +863,24 @@ function EstimatorV6Sandbox({ properties = [], managers = [], onSaveEstimate }) 
     setShowCatalog(false);
   }
 
+  const catalogFiltered = useMemo(() => {
+    if (!catalogSearch.trim()) return catalogItems;
+    const q = catalogSearch.toLowerCase();
+    return catalogItems.filter((item) =>
+      item.name.toLowerCase().includes(q) ||
+      (item.itemNumber && item.itemNumber.includes(q))
+    );
+  }, [catalogItems, catalogSearch]);
+
   const catalogByTrade = useMemo(() => {
     const groups = {};
-    catalogItems.forEach((item) => {
+    catalogFiltered.forEach((item) => {
       const trade = item.trade || 'general';
       if (!groups[trade]) groups[trade] = [];
       groups[trade].push(item);
     });
     return groups;
-  }, [catalogItems]);
+  }, [catalogFiltered]);
 
   function updateItemFromFormula(sectionId, itemId, field, rawValue) {
     const value = parseFloat(rawValue);
@@ -1402,10 +1496,17 @@ function EstimatorV6Sandbox({ properties = [], managers = [], onSaveEstimate }) 
         <div className="client-details-grid">
           <label>
             Customer Name
-            <input
+            <ContactAutocomplete
               value={model.customerName || ''}
-              onChange={(e) => updateModel((prev) => ({ ...prev, customerName: e.target.value }))}
-              placeholder="Client contact name"
+              managers={managers}
+              onChange={(name) => updateModel((prev) => ({ ...prev, customerName: name }))}
+              onSelect={(mgr) => updateModel((prev) => ({
+                ...prev,
+                customerName: `${mgr.firstName || ''} ${mgr.lastName || ''}`.trim(),
+                customerCompany: mgr.companyName || prev.customerCompany,
+                customerEmail: mgr.email || prev.customerEmail,
+                customerPhone: mgr.phone || prev.customerPhone,
+              }))}
             />
           </label>
           <label>
@@ -1751,6 +1852,20 @@ function EstimatorV6Sandbox({ properties = [], managers = [], onSaveEstimate }) 
                   Insert {catalogSel.size > 0 ? `(${catalogSel.size})` : ''} as Section
                 </button>
               </div>
+              <div className="catalog-drawer-search">
+                <input
+                  type="text"
+                  placeholder="Search catalog… (e.g. oak, holly, abelia)"
+                  value={catalogSearch}
+                  onChange={(e) => setCatalogSearch(e.target.value)}
+                  autoFocus
+                />
+                {catalogSearch && (
+                  <span className="catalog-search-count">
+                    {catalogFiltered.length} result{catalogFiltered.length !== 1 ? 's' : ''}
+                  </span>
+                )}
+              </div>
               <div className="catalog-drawer-body">
                 {Object.entries(catalogByTrade).map(([trade, items]) => (
                   <div key={trade} className="catalog-trade-group">
@@ -1764,17 +1879,22 @@ function EstimatorV6Sandbox({ properties = [], managers = [], onSaveEstimate }) 
                         />
                         <span className="catalog-item-name">{item.name}</span>
                         <span className="catalog-item-meta">
-                          {item.defaultQty > 0 ? `${item.defaultQty} ${item.unit || 'ea'}` : ''}
+                          {item.defaultUnitCost > 0 ? `$${Number(item.defaultUnitCost).toFixed(2)}` : ''}
                           {item.defaultHours > 0 ? ` · ${item.defaultHours}h` : ''}
-                          {item.defaultUnitCost > 0 ? ` · $${Number(item.defaultUnitCost).toFixed(2)}` : ''}
+                          {item.unit && item.unit !== 'ea' ? ` · ${item.unit}` : ''}
                         </span>
                       </label>
                     ))}
                   </div>
                 ))}
-                {catalogItems.length === 0 && (
+                {catalogFiltered.length === 0 && catalogSearch && (
                   <p style={{ color: 'var(--muted)', padding: 16 }}>
-                    No catalog items found. Add items in the Service Catalog page first.
+                    No items match "{catalogSearch}".
+                  </p>
+                )}
+                {catalogItems.length === 0 && !catalogSearch && (
+                  <p style={{ color: 'var(--muted)', padding: 16 }}>
+                    No catalog items found. Visit the Service Catalog page to add items.
                   </p>
                 )}
               </div>

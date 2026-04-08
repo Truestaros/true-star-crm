@@ -2327,6 +2327,78 @@ label.checkbox {
   white-space: nowrap;
 }
 
+.catalog-drawer-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.catalog-drawer-search input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.catalog-drawer-search input:focus {
+  outline: none;
+  border-color: #5a7a5f;
+  box-shadow: 0 0 0 2px rgba(90,122,95,0.15);
+}
+
+.catalog-search-count {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* Contact autocomplete */
+.contact-autocomplete-list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 200;
+  margin: 2px 0 0;
+  padding: 4px 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  list-style: none;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.contact-autocomplete-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.contact-autocomplete-list li:hover {
+  background: var(--accent-hover);
+}
+
+.contact-ac-name {
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.contact-ac-company {
+  font-size: 12px;
+  color: var(--muted);
+}
+
 /* ============================================================================
    NAV SECTION LABELS & NEW ESTIMATE BUTTON
    ========================================================================== */
