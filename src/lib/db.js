@@ -151,10 +151,42 @@ export async function getWorkTickets() {
   );
 }
 
+function ticketToRow(t) {
+  return camelToSnake({
+    id: t.id,
+    estimateId: t.estimateId || null,
+    estimateNumber: t.estimateNumber || '',
+    sectionId: t.sectionId || '',
+    sectionName: t.sectionName || '',
+    sequenceNumber: t.sequenceNumber ?? 1,
+    totalVisits: t.totalVisits ?? 1,
+    propertyId: t.propertyId || '',
+    propertyName: t.propertyName || '',
+    propertyAddress: t.propertyAddress || '',
+    scopeOfWork: t.scopeOfWork || '',
+    workDescription: t.workDescription || '',
+    estimatedHours: t.estimatedHours ?? 0,
+    estimatedPrice: t.estimatedPrice ?? 0,
+    crewId: t.crewId || null,
+    scheduledDate: t.scheduledDate || null,
+    status: t.status || 'unscheduled',
+    notes: t.notes || '',
+    timeEntries: t.timeEntries || [],
+    activeTimeEntryId: t.activeTimeEntryId || null,
+    activeLunchStartAt: t.activeLunchStartAt || null,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
 export async function upsertWorkTickets(tickets) {
-  const rows = tickets.map((t) => camelToSnake({ ...t, updatedAt: new Date().toISOString() }));
+  if (!tickets || tickets.length === 0) return;
+  const rows = tickets.map(ticketToRow);
   const { error } = await supabase.from('work_tickets').upsert(rows);
   if (error) throw error;
+}
+
+export async function upsertWorkTicket(ticket) {
+  return query(supabase.from('work_tickets').upsert(ticketToRow(ticket)).select().single());
 }
 
 export async function updateWorkTicket(ticket) {

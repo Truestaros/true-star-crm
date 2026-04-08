@@ -3,15 +3,13 @@ import { CalendarDays, CheckCircle2, ClipboardList, Clock3, MapPin } from 'lucid
 import './WorkTicketsPage.css';
 import { loadSettings, SETTINGS_STORAGE_KEY } from '../Settings/settingsStorage';
 import {
-  CREWS_STORAGE_KEY,
-  TICKETS_STORAGE_KEY,
   isTicketClosed,
   isTicketOpen,
   isTicketScheduled,
-  loadCrews,
-  loadTickets,
-  saveTickets,
+  loadCrewsFromDb,
+  loadTicketsFromDb,
 } from './ticketUtils';
+import { upsertWorkTicket } from '../../lib/db';
 
 const FILTERS = [
   { key: 'open', label: 'Open' },
@@ -238,58 +236,33 @@ function getCurrentShiftWorkedMinutes(ticket, nowEpochMs) {
 }
 
 function WorkTicketsPage() {
-  const [tickets, setTickets] = useState(loadTickets);
-  const [crews, setCrews] = useState(loadCrews);
+  const [tickets, setTickets] = useState([]);
+  const [crews, setCrews] = useState([]);
   const [settingsSnapshot, setSettingsSnapshot] = useState(loadSettings);
   const [activeWorkerId, setActiveWorkerId] = useState(loadActiveWorkerId);
   const [activeFilter, setActiveFilter] = useState('open');
   const [query, setQuery] = useState('');
   const [clockTick, setClockTick] = useState(() => Date.now());
 
+  // Load from Supabase on mount
   useEffect(() => {
-    function onStorage(event) {
-      if (!event.key || event.key === TICKETS_STORAGE_KEY) {
-        setTickets(loadTickets());
-      }
-      if (!event.key || event.key === CREWS_STORAGE_KEY) {
-        setCrews(loadCrews());
-      }
-    }
-
-    function onLocalTicketUpdate() {
-      setTickets(loadTickets());
-    }
-
-    function onLocalCrewUpdate() {
-      setCrews(loadCrews());
-    }
-
-    function onSettingsUpdate() {
-      setSettingsSnapshot(loadSettings());
-    }
-
-    window.addEventListener('storage', onStorage);
-    window.addEventListener('work-tickets-updated', onLocalTicketUpdate);
-    window.addEventListener('work-crews-updated', onLocalCrewUpdate);
-    window.addEventListener('crm-settings-updated', onSettingsUpdate);
-
-    return () => {
-      window.removeEventListener('storage', onStorage);
-      window.removeEventListener('work-tickets-updated', onLocalTicketUpdate);
-      window.removeEventListener('work-crews-updated', onLocalCrewUpdate);
-      window.removeEventListener('crm-settings-updated', onSettingsUpdate);
-    };
+    Promise.all([loadTicketsFromDb(), loadCrewsFromDb()]).then(([dbTickets, dbCrews]) => {
+      setTickets(dbTickets);
+      setCrews(dbCrews);
+    });
   }, []);
 
   useEffect(() => {
+    function onSettingsUpdate() { setSettingsSnapshot(loadSettings()); }
     function onSettingsStorage(event) {
-      if (!event?.key || event.key === SETTINGS_STORAGE_KEY) {
-        setSettingsSnapshot(loadSettings());
-      }
+      if (!event?.key || event.key === SETTINGS_STORAGE_KEY) setSettingsSnapshot(loadSettings());
     }
-
+    window.addEventListener('crm-settings-updated', onSettingsUpdate);
     window.addEventListener('storage', onSettingsStorage);
-    return () => window.removeEventListener('storage', onSettingsStorage);
+    return () => {
+      window.removeEventListener('crm-settings-updated', onSettingsUpdate);
+      window.removeEventListener('storage', onSettingsStorage);
+    };
   }, []);
 
   useEffect(() => {
@@ -389,13 +362,15 @@ function WorkTicketsPage() {
 
   function updateTicket(ticketId, updater) {
     setTickets((prev) => {
-      const next = prev.map((ticket) => (
-        ticket.id === ticketId
-          ? { ...updater(ticket), updatedAt: new Date().toISOString() }
-          : ticket
-      ));
-      saveTickets(next);
-      return next;
+      const updated = prev.map((ticket) => {
+        if (ticket.id !== ticketId) return ticket;
+        return { ...updater(ticket), updatedAt: new Date().toISOString() };
+      });
+      const changed = updated.find((t) => t.id === ticketId);
+      if (changed) {
+        upsertWorkTicket(changed).catch((err) => console.warn('Ticket save failed:', err));
+      }
+      return updated;
     });
   }
 

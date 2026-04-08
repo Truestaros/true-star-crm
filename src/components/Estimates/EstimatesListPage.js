@@ -230,8 +230,69 @@ function EstimatesListPage({
     return <span className="muted tiny-label">-</span>;
   }
 
+  // Group filtered rows by opportunityId — multiple revisions collapse under one deal
+  const [expandedOpps, setExpandedOpps] = useState({});
+
+  const groupedRows = useMemo(() => {
+    const groups = {};
+    rows.forEach((row) => {
+      const key = row.opportunityId || row.id;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(row);
+    });
+    // Within each group: latest version first
+    Object.values(groups).forEach((g) => g.sort((a, b) => (b.version || 1) - (a.version || 1)));
+    // Sort groups by the primary row's createdAt descending
+    return Object.values(groups).sort((a, b) => new Date(b[0].createdAt) - new Date(a[0].createdAt));
+  }, [rows]);
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+
+  const GRID = '0.8fr 1fr 1.4fr 1fr 1fr 0.8fr 0.8fr 0.8fr 0.9fr 1fr';
+
+  function renderRow(row, isRevision = false) {
+    const followUpOverdue = row.followUpDate && new Date(row.followUpDate) < today;
+    return (
+      <div
+        key={row.id}
+        className={`table-row${isRevision ? ' revision-row' : ''}`}
+        style={{ gridTemplateColumns: GRID, opacity: isRevision ? 0.75 : 1 }}
+      >
+        <span style={{ fontWeight: 600, paddingLeft: isRevision ? 16 : 0 }}>v{row.version || 1}</span>
+        <span style={{ fontWeight: 600 }}>{row.proposalNumber}</span>
+        <span>{row.propertyName}</span>
+        <span>{row.managerName}</span>
+        <span style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+          {formatCurrency(row.annualTotal)}
+        </span>
+        <span>
+          <span className={`category-pill ${getStatusClass(row.status)}`}>{row.status}</span>
+          {row.approvalNote && <span className="approval-note-chip">note</span>}
+        </span>
+        <span>
+          {row.renewalBucket ? (
+            <span className={`renewal-pill renewal-${row.renewalBucket}`}>
+              {row.renewalBucket === 'overdue' ? 'overdue' : `${row.renewalBucket}d`}
+            </span>
+          ) : (
+            <span className="muted tiny-label">-</span>
+          )}
+        </span>
+        <span className={followUpOverdue ? 'followup-overdue' : undefined}>
+          {row.followUpDate ? new Date(row.followUpDate).toLocaleDateString() : <span className="muted tiny-label">—</span>}
+        </span>
+        <span>{formatDate(row.createdAt)}</span>
+        <span className="row-actions">
+          <button className="ghost" type="button" onClick={() => navigate(`/estimates/${row.id}/edit`)} style={{ padding: '6px 10px', fontSize: 12 }}>Edit</button>
+          {!isRevision && !['won','lost'].includes(row.status) && (
+            <button className="ghost" type="button" style={{ padding: '6px 10px', fontSize: 12 }} onClick={() => navigate(`/estimator?revisionOf=${row.id}`)}>Revise</button>
+          )}
+          {renderActions(row)}
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div className="panel-card">
@@ -310,17 +371,12 @@ function EstimatesListPage({
         </select>
       </div>
 
-      {rows.length === 0 ? (
+      {groupedRows.length === 0 ? (
         <div className="empty-state">No estimates match your filters.</div>
       ) : (
         <div className="table">
-          <div
-            className="table-header"
-            style={{
-              gridTemplateColumns: '0.8fr 1fr 1.4fr 1fr 1fr 0.8fr 0.8fr 0.8fr 1fr 0.8fr',
-            }}
-          >
-            <button type="button" onClick={() => handleSort('version')}>Version</button>
+          <div className="table-header" style={{ gridTemplateColumns: GRID }}>
+            <button type="button" onClick={() => handleSort('version')}>Ver.</button>
             <button type="button" onClick={() => handleSort('proposalNumber')}>Proposal #</button>
             <button type="button" onClick={() => handleSort('propertyName')}>Property</button>
             <button type="button" onClick={() => handleSort('managerName')}>PM</button>
@@ -331,59 +387,27 @@ function EstimatesListPage({
             <button type="button" onClick={() => handleSort('createdAt')}>Created</button>
             <span>Actions</span>
           </div>
-          {rows.map((row) => {
-            const followUpOverdue =
-              row.followUpDate && new Date(row.followUpDate) < today;
+          {groupedRows.map((group) => {
+            const [primary, ...older] = group;
+            const oppKey = primary.opportunityId || primary.id;
+            const isExpanded = expandedOpps[oppKey];
             return (
-              <div
-                key={row.id}
-                className="table-row"
-                style={{
-                  gridTemplateColumns: '0.8fr 1fr 1.4fr 1fr 1fr 0.8fr 0.8fr 0.8fr 1fr 0.8fr',
-                }}
-              >
-                <span style={{ fontWeight: 600 }}>v{row.version || 1}</span>
-                <span style={{ fontWeight: 600 }}>{row.proposalNumber}</span>
-                <span>{row.propertyName}</span>
-                <span>{row.managerName}</span>
-                <span style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
-                  {formatCurrency(row.annualTotal)}
-                </span>
-                <span>
-                  <span className={`category-pill ${getStatusClass(row.status)}`}>{row.status}</span>
-                  {row.approvalNote && <span className="approval-note-chip">note</span>}
-                </span>
-                <span>
-                  {row.renewalBucket ? (
-                    <span className={`renewal-pill renewal-${row.renewalBucket}`}>{row.renewalBucket === 'overdue' ? 'overdue' : `${row.renewalBucket}d`}</span>
-                  ) : (
-                    <span className="muted tiny-label">-</span>
+              <React.Fragment key={oppKey}>
+                <div style={{ position: 'relative' }}>
+                  {renderRow(primary, false)}
+                  {older.length > 0 && (
+                    <button
+                      type="button"
+                      className="revision-expander"
+                      onClick={() => setExpandedOpps((prev) => ({ ...prev, [oppKey]: !prev[oppKey] }))}
+                      title={isExpanded ? 'Hide revisions' : 'Show older revisions'}
+                    >
+                      {isExpanded ? '▴' : '▾'} {older.length} revision{older.length > 1 ? 's' : ''}
+                    </button>
                   )}
-                </span>
-                <span className={followUpOverdue ? 'followup-overdue' : undefined}>
-                  {row.followUpDate ? new Date(row.followUpDate).toLocaleDateString() : <span className="muted tiny-label">—</span>}
-                </span>
-                <span>{formatDate(row.createdAt)}</span>
-                <span className="row-actions">
-                  <button
-                    className="ghost"
-                    type="button"
-                    onClick={() => navigate(`/estimates/${row.id}/edit`)}
-                    style={{ padding: '6px 12px', fontSize: 13 }}
-                  >
-                    Edit
-                  </button>
-                  <button
-                    className="ghost"
-                    type="button"
-                    onClick={() => navigate(`/properties/${row.propertyId}`)}
-                    style={{ padding: '6px 12px', fontSize: 13 }}
-                  >
-                    Property
-                  </button>
-                  {renderActions(row)}
-                </span>
-              </div>
+                </div>
+                {isExpanded && older.map((rev) => renderRow(rev, true))}
+              </React.Fragment>
             );
           })}
         </div>

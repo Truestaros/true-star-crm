@@ -28,7 +28,7 @@ import EstimatorV6FormulaSandbox from './components/Sandboxes/EstimatorV6Formula
 import SettingsPage from './components/Settings/SettingsPage';
 import { applyThemeColors, loadSettings, saveSettings } from './components/Settings/settingsStorage';
 import WorkTicketsPage from './components/WorkTickets/WorkTicketsPage';
-import { ensureEstimateTickets } from './components/WorkTickets/ticketUtils';
+import { ensureEstimateTicketsAsync } from './components/WorkTickets/ticketUtils';
 import {
   getPropertyManagers,
   createPropertyManager,
@@ -45,6 +45,8 @@ import {
   getActivities,
   createActivity,
   updateActivity,
+  loadSettingsFromDb,
+  saveSettingsToDb,
 } from './lib/db';
 
 function formatCurrency(value) {
@@ -262,12 +264,13 @@ function App() {
   useEffect(() => {
     async function fetchAll() {
       try {
-        const [mgrs, props, nts, ests, acts] = await Promise.all([
+        const [mgrs, props, nts, ests, acts, dbSettings] = await Promise.all([
           getPropertyManagers(),
           getProperties(),
           getNotes(),
           getEstimates(),
           getActivities(),
+          loadSettingsFromDb().catch(() => null),
         ]);
         setManagers(mgrs.map((m) => ({ ...m, createdAt: m.createdAt ? new Date(m.createdAt) : new Date() })));
         setProperties(props);
@@ -282,6 +285,12 @@ function App() {
             approvalNote: e.approvalNote || '',
           }))
         );
+        // Settings: Supabase wins over localStorage if a saved record exists
+        if (dbSettings && Object.keys(dbSettings).length > 0) {
+          const { normalizeSettings } = await import('./components/Settings/settingsStorage');
+          const normalized = normalizeSettings(dbSettings);
+          setAppSettings(normalized);
+        }
       } catch (err) {
         console.error('Failed to load data from Supabase:', err);
       } finally {
@@ -546,14 +555,15 @@ function App() {
 
     if (nextEstimate && String(status || '').toLowerCase() === 'won') {
       const property = properties.find((p) => p.id === nextEstimate.propertyId);
-      const { created } = ensureEstimateTickets({
+      ensureEstimateTicketsAsync({
         estimate: nextEstimate,
         propertyName: property?.name || '',
         propertyAddress: property?.address || '',
-      });
-      if (created > 0) {
-        alert(`${created} work ticket${created === 1 ? '' : 's'} created from won estimate ${nextEstimate.proposalNumber || ''}.`);
-      }
+      }).then(({ created }) => {
+        if (created > 0) {
+          alert(`${created} work ticket${created === 1 ? '' : 's'} created from won estimate ${nextEstimate.proposalNumber || ''}.`);
+        }
+      }).catch((err) => console.error('Failed to create work tickets:', err));
     }
   }
 

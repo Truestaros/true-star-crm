@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
+import { loadSettings } from '../Settings/settingsStorage';
 
 function AddPropertyModal({ onClose, onSave }) {
+  const members = loadSettings().members || [];
   const [form, setForm] = useState({
     name: '',
     address: '',
     dealStage: 'prospecting',
     value: 20000,
+    assignedTo: members[0]?.name || '',
   });
 
   function handleSubmit(event) {
@@ -55,6 +58,18 @@ function AddPropertyModal({ onClose, onSave }) {
               <option value="negotiation">Negotiation</option>
               <option value="won">Won</option>
               <option value="lost">Lost</option>
+            </select>
+          </label>
+          <label>
+            Assigned To
+            <select
+              value={form.assignedTo}
+              onChange={(event) => setForm({ ...form, assignedTo: event.target.value })}
+            >
+              <option value="">— Unassigned —</option>
+              {members.map((m) => (
+                <option key={m.id} value={m.name}>{m.name}</option>
+              ))}
             </select>
           </label>
           <label>

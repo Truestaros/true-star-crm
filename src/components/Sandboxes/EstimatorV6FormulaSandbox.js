@@ -267,8 +267,11 @@ function createDefaultModel() {
   const contractStartDate = todayDateInputValue();
   const contractEndDate = oneYearLaterMinusOneDay(contractStartDate);
 
+  const newId = uid('est-v6');
   return {
-    estimateId: uid('est-v6'),
+    estimateId: newId,
+    opportunityId: newId,       // groups revisions of the same deal
+    parentEstimateId: null,
     estimateNumber: '378',
     estimateTitle: '',
     locationName: '',
@@ -356,6 +359,8 @@ function loadModel() {
       minMarginGatePct: defaults.minMarginGatePct,
       laborRates: { maintenance: 45, planting: 60, irrigation: 75 },
       ...parsed,
+      opportunityId: parsed.opportunityId || parsed.estimateId || uid('est-v6'),
+      parentEstimateId: parsed.parentEstimateId || null,
       jobType: parsed.jobType || 'maintenance_contract',
       scopeTemplateId: parsed.scopeTemplateId || null,
       contractTermMonths: normalizePaymentTermMonths(
@@ -594,7 +599,7 @@ function ContactAutocomplete({ value, managers, onChange, onSelect }) {
   );
 }
 
-function EstimatorV6Sandbox({ properties = [], managers = [], onSaveEstimate }) {
+function EstimatorV6Sandbox({ properties = [], managers = [], estimates = [], onSaveEstimate }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const lastQueryPrefillIdRef = useRef('');
@@ -675,6 +680,37 @@ function EstimatorV6Sandbox({ properties = [], managers = [], onSaveEstimate }) 
       return applyPropertyPrefill(prev, property, manager, true);
     });
   }, [searchParams, properties, managers]);
+
+  // Handle ?revisionOf=estimateId — copy source estimate into a fresh revision
+  const lastRevisionOfRef = useRef('');
+  useEffect(() => {
+    const revisionOfId = searchParams.get('revisionOf');
+    if (!revisionOfId || lastRevisionOfRef.current === revisionOfId) return;
+
+    const source = estimates.find((e) => e.id === revisionOfId);
+    if (!source) return;
+    lastRevisionOfRef.current = revisionOfId;
+
+    // Build a new revision number: append -R2, -R3 etc.
+    const baseNum = String(source.estimateNumber || source.proposalNumber || '').replace(/-R\d+$/, '');
+    const revMatch = String(source.estimateNumber || source.proposalNumber || '').match(/-R(\d+)$/);
+    const nextRevNum = revMatch ? `${baseNum}-R${Number(revMatch[1]) + 1}` : `${baseNum}-R2`;
+
+    const newId = uid('est-v6');
+    setModel({
+      ...source,
+      estimateId: newId,
+      opportunityId: source.opportunityId || source.id,
+      parentEstimateId: source.id,
+      estimateNumber: nextRevNum,
+      status: 'draft',
+      version: (source.version || 1) + 1,
+      versionHistory: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    setSearchParams({});
+  }, [searchParams, estimates, setSearchParams]);
 
   const sections = useMemo(
     () => (model.sections || []).map((section) => computeSection(section, model.laborRates || {})),

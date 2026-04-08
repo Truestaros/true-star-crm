@@ -22,6 +22,12 @@ function isTicketOpen(ticket) {
   return !isTicketClosed(ticket);
 }
 
+const DEFAULT_CREWS = [
+  { id: 'crew-1', name: 'Crew Alpha', color: '#4A90D9' },
+  { id: 'crew-2', name: 'Crew Bravo', color: '#D9534F' },
+];
+
+// Sync fallbacks (localStorage) used only when Supabase is unreachable
 function loadTickets() {
   try {
     const raw = localStorage.getItem(TICKETS_STORAGE_KEY);
@@ -33,12 +39,22 @@ function loadTickets() {
 }
 
 function saveTickets(tickets) {
-  localStorage.setItem(TICKETS_STORAGE_KEY, JSON.stringify(tickets));
-  // Async sync to Supabase — fire and forget
+  // Supabase is the source of truth — fire-and-forget from sync callers
   import('../../lib/db').then(({ upsertWorkTickets }) => {
     upsertWorkTickets(tickets).catch((err) => console.warn('Tickets sync to Supabase failed:', err));
   });
   window.dispatchEvent(new Event('work-tickets-updated'));
+}
+
+// Async loaders — used by components on mount
+async function loadTicketsFromDb() {
+  const { getWorkTickets } = await import('../../lib/db');
+  try {
+    const rows = await getWorkTickets();
+    return Array.isArray(rows) ? rows : [];
+  } catch {
+    return loadTickets(); // localStorage fallback
+  }
 }
 
 function loadCrews() {
@@ -47,14 +63,19 @@ function loadCrews() {
     const parsed = raw ? JSON.parse(raw) : [];
     if (Array.isArray(parsed) && parsed.length > 0) return parsed;
   } catch {
-    // fall through to defaults
+    // fall through
   }
-  const defaultCrews = [
-    { id: 'crew-1', name: 'Crew Alpha', color: '#4A90D9' },
-    { id: 'crew-2', name: 'Crew Bravo', color: '#D9534F' },
-  ];
-  localStorage.setItem(CREWS_STORAGE_KEY, JSON.stringify(defaultCrews));
-  return defaultCrews;
+  return DEFAULT_CREWS;
+}
+
+async function loadCrewsFromDb() {
+  const { getCrews } = await import('../../lib/db');
+  try {
+    const rows = await getCrews();
+    return Array.isArray(rows) && rows.length > 0 ? rows : DEFAULT_CREWS;
+  } catch {
+    return loadCrews();
+  }
 }
 
 function saveCrews(crews) {
@@ -69,15 +90,8 @@ function saveCrews(crews) {
     })
     .filter(Boolean);
 
-  const nextCrews = normalized.length > 0
-    ? normalized
-    : [
-        { id: 'crew-1', name: 'Crew Alpha', color: '#4A90D9' },
-        { id: 'crew-2', name: 'Crew Bravo', color: '#D9534F' },
-      ];
+  const nextCrews = normalized.length > 0 ? normalized : DEFAULT_CREWS;
 
-  localStorage.setItem(CREWS_STORAGE_KEY, JSON.stringify(nextCrews));
-  // Async sync to Supabase — fire and forget
   import('../../lib/db').then(({ saveCrewsToDb }) => {
     saveCrewsToDb(nextCrews).catch((err) => console.warn('Crews sync to Supabase failed:', err));
   });
@@ -148,27 +162,32 @@ function ensureEstimateTickets({
   propertyName = '',
   propertyAddress = '',
 }) {
-  if (!estimate || !estimate.id) {
-    return { created: 0, tickets: [] };
-  }
-
+  if (!estimate || !estimate.id) return { created: 0, tickets: [] };
   const existingTickets = loadTickets();
   if (existingTickets.some((ticket) => ticket.estimateId === estimate.id)) {
     return { created: 0, tickets: existingTickets };
   }
-
-  const newTickets = generateWorkTicketsFromEstimate({
-    estimate,
-    propertyName,
-    propertyAddress,
-  });
-  if (newTickets.length === 0) {
-    return { created: 0, tickets: existingTickets };
-  }
-
+  const newTickets = generateWorkTicketsFromEstimate({ estimate, propertyName, propertyAddress });
+  if (newTickets.length === 0) return { created: 0, tickets: existingTickets };
   const merged = [...existingTickets, ...newTickets];
   saveTickets(merged);
   return { created: newTickets.length, tickets: merged };
+}
+
+// Async version — fetches from Supabase so no localStorage dependency
+async function ensureEstimateTicketsAsync({
+  estimate,
+  propertyName = '',
+  propertyAddress = '',
+}) {
+  if (!estimate || !estimate.id) return { created: 0 };
+  const { getWorkTickets, upsertWorkTickets } = await import('../../lib/db');
+  const existing = await getWorkTickets();
+  if (existing.some((ticket) => ticket.estimateId === estimate.id)) return { created: 0 };
+  const newTickets = generateWorkTicketsFromEstimate({ estimate, propertyName, propertyAddress });
+  if (newTickets.length === 0) return { created: 0 };
+  await upsertWorkTickets(newTickets);
+  return { created: newTickets.length };
 }
 
 export {
@@ -179,9 +198,12 @@ export {
   isTicketScheduled,
   isTicketOpen,
   loadTickets,
+  loadTicketsFromDb,
   saveTickets,
   loadCrews,
+  loadCrewsFromDb,
   saveCrews,
   generateWorkTicketsFromEstimate,
   ensureEstimateTickets,
+  ensureEstimateTicketsAsync,
 };
