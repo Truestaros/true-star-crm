@@ -9,11 +9,24 @@ const FALLBACK_TIME_ZONES = [
   'UTC',
 ];
 
-const DEFAULT_TERMS_AND_CONDITIONS = [
+const DEFAULT_TERMS_MAINTENANCE = [
   'Warranty: Contractor warrants that services will be performed in a professional and workmanlike manner consistent with industry standards. Unless otherwise stated in writing, any workmanship concern reported within thirty (30) days of service completion will be reviewed and corrected at no additional labor charge.',
   '',
   'Non-Payment: Invoices are due according to the payment terms listed in this proposal. Past-due balances may accrue a service charge of 1.5% per month (or the maximum amount allowed by law). Contractor reserves the right to suspend services on accounts more than thirty (30) days past due. Customer is responsible for reasonable costs of collection, including attorney fees, if collection action is required.',
+  '',
+  'Contract Term: This agreement shall remain in effect for the duration specified herein. Either party may terminate with thirty (30) days written notice. Termination does not relieve Customer of payment obligations for services already rendered.',
 ].join('\n');
+
+const DEFAULT_TERMS_ONE_TIME = [
+  'Warranty: Contractor warrants that services will be performed in a professional and workmanlike manner consistent with industry standards. Any workmanship concern reported within thirty (30) days of service completion will be reviewed and corrected at no additional labor charge.',
+  '',
+  'Payment: Payment is due according to the terms listed in this proposal. Past-due balances may accrue a service charge of 1.5% per month. Customer is responsible for reasonable costs of collection, including attorney fees, if collection action is required.',
+  '',
+  'Scope Changes: Any changes to the agreed scope of work must be authorized in writing prior to commencement. Additional work beyond this proposal will be invoiced separately.',
+].join('\n');
+
+// Legacy alias kept for migration — maps to maintenance contract T&C
+const DEFAULT_TERMS_AND_CONDITIONS = DEFAULT_TERMS_MAINTENANCE;
 
 function getBrowserTimeZone() {
   try {
@@ -33,7 +46,8 @@ const DEFAULT_SETTINGS = {
   secondaryColor: '#3d5942',
   contractTermMonths: 12,
   minMarginGatePct: 35,
-  termsAndConditions: DEFAULT_TERMS_AND_CONDITIONS,
+  termsMaintenanceContract: DEFAULT_TERMS_MAINTENANCE,
+  termsOneTimeService: DEFAULT_TERMS_ONE_TIME,
   members: [
     {
       id: 'member-owner-admin',
@@ -88,8 +102,13 @@ function normalizeSettings(rawSettings = {}) {
     0,
     Number(rawSettings.minMarginGatePct ?? DEFAULT_SETTINGS.minMarginGatePct),
   );
-  const termsAndConditions = String(
-    rawSettings.termsAndConditions ?? DEFAULT_SETTINGS.termsAndConditions,
+  // Migrate legacy single-field to maintenance T&C; new field gets its own default
+  const legacyTerms = rawSettings.termsAndConditions ?? null;
+  const termsMaintenanceContract = String(
+    rawSettings.termsMaintenanceContract ?? legacyTerms ?? DEFAULT_SETTINGS.termsMaintenanceContract,
+  );
+  const termsOneTimeService = String(
+    rawSettings.termsOneTimeService ?? DEFAULT_SETTINGS.termsOneTimeService,
   );
 
   // Migrate from old Apple-blue defaults to True Star brand green
@@ -110,7 +129,8 @@ function normalizeSettings(rawSettings = {}) {
     secondaryColor: migratedSecondary,
     contractTermMonths,
     minMarginGatePct,
-    termsAndConditions,
+    termsMaintenanceContract,
+    termsOneTimeService,
     members,
   };
 }

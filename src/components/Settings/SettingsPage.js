@@ -437,11 +437,20 @@ function SettingsPage({ settings, onSaveSettings, roles = [] }) {
             </label>
 
             <label>
-              Terms &amp; Conditions (PDF)
+              Terms &amp; Conditions — Maintenance Contract
               <textarea
-                value={draft.termsAndConditions || ''}
-                onChange={(event) => setField('termsAndConditions', event.target.value)}
-                placeholder="Proposal legal terms shown in exported PDFs."
+                value={draft.termsMaintenanceContract || ''}
+                onChange={(event) => setField('termsMaintenanceContract', event.target.value)}
+                placeholder="Legal terms shown on Maintenance Contract PDFs."
+              />
+            </label>
+
+            <label>
+              Terms &amp; Conditions — One Time Service
+              <textarea
+                value={draft.termsOneTimeService || ''}
+                onChange={(event) => setField('termsOneTimeService', event.target.value)}
+                placeholder="Legal terms shown on One Time Service PDFs."
               />
             </label>
           </div>

@@ -1286,7 +1286,12 @@ function EstimatorV6Sandbox({ properties = [], managers = [], onSaveEstimate }) 
       }
     }
 
-    const termsText = String(settings.termsAndConditions || '').trim();
+    const isOneTimeJob = model.jobType === 'one_time_service';
+    const termsText = String(
+      isOneTimeJob
+        ? (settings.termsOneTimeService || settings.termsAndConditions || '')
+        : (settings.termsMaintenanceContract || settings.termsAndConditions || '')
+    ).trim();
     if (termsText) {
       drawBandHeading('Terms & Conditions');
 
