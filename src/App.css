@@ -2772,3 +2772,314 @@ label.checkbox {
   padding: 12px 0;
   margin: 0;
 }
+
+/* ============================================================================
+   PIPELINE — RENEWAL QUEUE PANEL
+   ========================================================================== */
+
+.renewal-queue-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+
+.rq-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.rq-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.rq-meta {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.rq-list {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.rq-card {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  cursor: pointer;
+  min-width: 160px;
+  max-width: 220px;
+  transition: box-shadow 0.15s, transform 0.1s;
+}
+
+.rq-card:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  transform: translateY(-1px);
+}
+
+.rq-property {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rq-manager {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.rq-value {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  margin-top: 4px;
+}
+
+.rq-days {
+  font-size: 11px;
+  font-weight: 700;
+  margin-top: 2px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  display: inline-block;
+  width: fit-content;
+}
+
+.rq-days-overdue { background: #fdeaea; color: #c0392b; }
+.rq-days-30      { background: #fff3e0; color: #e65100; }
+.rq-days-60      { background: #fffde7; color: #f57f17; }
+.rq-days-90      { background: #e8f5e9; color: #2e7d32; }
+.rq-days-120     { background: #e3f2fd; color: #1565c0; }
+
+/* ============================================================================
+   PIPELINE — DEAL CARD CLICKABLE
+   ========================================================================== */
+
+.deal-card { cursor: pointer; }
+
+/* ============================================================================
+   ESTIMATES LIST — FOLLOW-UP
+   ========================================================================== */
+
+.followup-overdue-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: #fff8e1;
+  border: 1px solid #ffe082;
+  border-radius: var(--radius-sm);
+  margin-bottom: 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #7c5c00;
+}
+
+.followup-overdue-banner button {
+  margin-left: auto;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid #f9a825;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: #7c5c00;
+  cursor: pointer;
+}
+
+.followup-overdue {
+  color: #c0392b;
+  font-weight: 600;
+}
+
+.send-confirm-inline {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 160px;
+}
+
+.send-confirm-inline label {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.send-confirm-inline input[type="date"] {
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.send-confirm-inline .send-confirm-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.send-confirm-inline .send-confirm-actions button.primary {
+  padding: 5px 12px;
+  font-size: 12px;
+}
+
+.send-confirm-inline .cancel-link {
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  text-decoration: underline;
+}
+
+/* ============================================================================
+   ACCOUNT VIEW — PROPERTY MANAGER DETAIL
+   ========================================================================== */
+
+.account-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.stat-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+
+.stat-card .stat-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.stat-card .stat-value {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.stat-card .stat-value.stat-green { color: #5a7a5f; }
+.stat-card .stat-value.stat-blue  { color: #1565c0; }
+
+.new-estimate-btn {
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px;
+  background: #5a7a5f;
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.new-estimate-btn:hover { background: #3d5942; }
+
+.overview-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+.overview-col h4 {
+  font-size: 13px;
+  font-weight: 700;
+  margin: 0 0 10px;
+  color: var(--text);
+}
+
+.estimate-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: background 0.1s, box-shadow 0.1s;
+  background: var(--surface);
+}
+
+.estimate-card:hover {
+  background: var(--accent-hover);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+
+.estimate-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.estimate-card-num {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.estimate-card-total {
+  font-size: 13px;
+  font-weight: 700;
+  color: #5a7a5f;
+}
+
+.estimate-card-property {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.estimate-card-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+}
+
+.estimate-card-renewal {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.link-button {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent);
+  font-size: 13px;
+  cursor: pointer;
+  text-decoration: underline;
+  margin-top: 4px;
+}
+
+.row-followup-overdue {
+  background: #fff8f8 !important;
+}

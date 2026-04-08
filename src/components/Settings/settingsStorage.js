@@ -25,7 +25,7 @@ const DEFAULT_TERMS_ONE_TIME = [
   'Scope Changes: Any changes to the agreed scope of work must be authorized in writing prior to commencement. Additional work beyond this proposal will be invoiced separately.',
 ].join('\n');
 
-// Legacy alias kept for migration — maps to maintenance contract T&C
+// eslint-disable-next-line no-unused-vars
 const DEFAULT_TERMS_AND_CONDITIONS = DEFAULT_TERMS_MAINTENANCE;
 
 function getBrowserTimeZone() {

@@ -47,6 +47,10 @@ import {
   updateActivity,
 } from './lib/db';
 
+function formatCurrency(value) {
+  return Number(value || 0).toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+}
+
 const roles = ['Admin', 'Sales', 'Estimator', 'Ops', 'ReadOnly'];
 const STALE_DAYS = 14;
 
@@ -98,6 +102,101 @@ function RedirectEstimateEditToEstimator() {
   const { id } = useParams();
   const query = id ? `?estimateId=${encodeURIComponent(id)}` : '';
   return <Navigate to={`/estimator${query}`} replace />;
+}
+
+function PipelineView({ dashboardKpis, followUpOverdueCount, renewalQueue, pipelineStages, dealsByStage, dealStaleMap, onStageMove }) {
+  const navigate = useNavigate();
+  return (
+    <section className="pipeline-view">
+      <section className="kpi-strip">
+        {dashboardKpis.map((kpi) => (
+          <article key={kpi.key} className="kpi-card">
+            <p>{kpi.label}</p>
+            <strong>{kpi.value}</strong>
+          </article>
+        ))}
+        {followUpOverdueCount > 0 && (
+          <article className="kpi-card" style={{ color: '#c0392b' }}>
+            <p>Follow-ups Overdue</p>
+            <strong>{followUpOverdueCount}</strong>
+          </article>
+        )}
+      </section>
+      {renewalQueue.length > 0 && (
+        <section className="renewal-queue-panel">
+          <div className="rq-header">
+            <span className="rq-title">Contracts Renewing Soon</span>
+            <span className="rq-meta">{renewalQueue.length} contracts · {formatCurrency(renewalQueue.reduce((s, r) => s + r.annualTotal, 0))} annual value</span>
+          </div>
+          <div className="rq-list">
+            {renewalQueue.map((r) => (
+              <div key={r.id} className={`rq-card rq-${r.bucket}`} onClick={() => navigate(`/estimator?estimateId=${r.id}`)}>
+                <div className="rq-property">{r.propertyName}</div>
+                <div className="rq-manager">{r.managerName}</div>
+                <div className="rq-value">{formatCurrency(r.annualTotal)}/yr</div>
+                <div className={`rq-days rq-days-${r.bucket}`}>
+                  {r.bucket === 'overdue' ? 'Overdue' : `${r.daysOut}d`}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+      <section className="kanban">
+        {pipelineStages.map((stage) => (
+          <div key={stage.key} className="kanban-column">
+            <div className="kanban-header">
+              <div>
+                <h3>{stage.label}</h3>
+                <span className="kanban-sub">
+                  {dealsByStage[stage.key]
+                    .reduce((sum, d) => sum + Number(d.value), 0)
+                    .toLocaleString(undefined, { style: 'currency', currency: 'USD' })}
+                </span>
+              </div>
+              <span>{dealsByStage[stage.key].length}</span>
+            </div>
+            <div
+              className="kanban-list"
+              onDragEnter={(e) => e.preventDefault()}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                const propertyId = e.dataTransfer.getData('text/plain');
+                if (propertyId) onStageMove(propertyId, stage.key);
+              }}
+            >
+              {dealsByStage[stage.key].map((deal) => (
+                <div
+                  key={deal.id}
+                  className={`deal-card ${dealStaleMap[deal.id] ? 'deal-card-stale' : ''}`}
+                  draggable
+                  style={{ cursor: 'pointer' }}
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData('text/plain', deal.id);
+                    e.dataTransfer.effectAllowed = 'move';
+                  }}
+                  onClick={() => navigate(`/properties/${deal.id}`)}
+                >
+                  <div className="deal-card-title">{deal.name}</div>
+                  <div className="deal-card-meta"><span>{deal.address}</span></div>
+                  {dealStaleMap[deal.id] && (
+                    <div className="deal-stale-badge">
+                      <AlertTriangle size={14} />
+                      Stale 14+ days
+                    </div>
+                  )}
+                  <div className="deal-card-footer">
+                    <span>{Number(deal.value).toLocaleString(undefined, { style: 'currency', currency: 'USD' })}</span>
+                    <span>{deal.dealStage}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </section>
+    </section>
+  );
 }
 
 function App() {
@@ -232,6 +331,48 @@ function App() {
     ];
   }, [properties, estimates, managers]);
 
+  const renewalQueue = useMemo(() => {
+    const now = new Date();
+    const cutoff = new Date();
+    cutoff.setDate(now.getDate() + 120);
+    return estimates
+      .filter((e) => {
+        if (!e.contractEndDate) return false;
+        const end = new Date(e.contractEndDate);
+        return end <= cutoff; // includes overdue
+      })
+      .map((e) => {
+        const property = properties.find((p) => p.id === e.propertyId);
+        const manager = managers.find((m) => m.id === e.propertyManagerId);
+        const end = new Date(e.contractEndDate);
+        const daysOut = Math.ceil((end - now) / (1000 * 60 * 60 * 24));
+        let bucket = 'overdue';
+        if (daysOut > 90) bucket = '120';
+        else if (daysOut > 60) bucket = '90';
+        else if (daysOut > 30) bucket = '60';
+        else if (daysOut >= 0) bucket = '30';
+        return {
+          id: e.id,
+          propertyId: e.propertyId,
+          propertyName: property?.name || 'Unknown',
+          managerName: manager ? `${manager.firstName} ${manager.lastName}` : '',
+          annualTotal: e.annualTotal || 0,
+          contractEndDate: e.contractEndDate,
+          daysOut,
+          bucket,
+          proposalNumber: e.proposalNumber,
+        };
+      })
+      .sort((a, b) => a.daysOut - b.daysOut);
+  }, [estimates, properties, managers]);
+
+  const followUpOverdueCount = useMemo(() => {
+    const today = new Date().toISOString().split('T')[0];
+    return estimates.filter(
+      (e) => e.status === 'sent' && e.followUpDate && e.followUpDate < today
+    ).length;
+  }, [estimates]);
+
   const rolePermissions = useMemo(
     () => ({
       canEditCatalog: true,
@@ -328,22 +469,29 @@ function App() {
     }
   }
 
-  async function handleEstimateStatusChange(estimateId, status, approvalNote = '') {
+  async function handleEstimateStatusChange(estimateId, status, approvalNote = '', followUpDate = null) {
     const current = estimates.find((e) => e.id === estimateId);
+    const sentFields = status === 'sent'
+      ? { sentAt: new Date().toISOString(), followUpDate: followUpDate || null }
+      : {};
     const nextEstimate = current
-      ? { ...current, status, updatedAt: new Date().toISOString(), approvalNote: approvalNote || current.approvalNote || '' }
+      ? { ...current, status, updatedAt: new Date().toISOString(), approvalNote: approvalNote || current.approvalNote || '', ...sentFields }
       : null;
 
     setEstimates((prev) =>
       prev.map((e) =>
         e.id === estimateId
-          ? { ...e, status, updatedAt: new Date().toISOString(), approvalNote: approvalNote || e.approvalNote || '' }
+          ? { ...e, status, updatedAt: new Date().toISOString(), approvalNote: approvalNote || e.approvalNote || '', ...sentFields }
           : e
       )
     );
 
     try {
-      await updateEstimateStatus(estimateId, status, approvalNote);
+      if (nextEstimate) {
+        await upsertEstimate(nextEstimate);
+      } else {
+        await updateEstimateStatus(estimateId, status, approvalNote);
+      }
     } catch (err) {
       console.error('Failed to update estimate status:', err);
     }
@@ -593,67 +741,15 @@ function App() {
             <Route
               path="/"
               element={
-                <section className="pipeline-view">
-                  <section className="kpi-strip">
-                    {dashboardKpis.map((kpi) => (
-                      <article key={kpi.key} className="kpi-card">
-                        <p>{kpi.label}</p>
-                        <strong>{kpi.value}</strong>
-                      </article>
-                    ))}
-                  </section>
-                  <section className="kanban">
-                    {pipelineStages.map((stage) => (
-                      <div key={stage.key} className="kanban-column">
-                        <div className="kanban-header">
-                          <div>
-                            <h3>{stage.label}</h3>
-                            <span className="kanban-sub">
-                              {dealsByStage[stage.key]
-                                .reduce((sum, d) => sum + Number(d.value), 0)
-                                .toLocaleString(undefined, { style: 'currency', currency: 'USD' })}
-                            </span>
-                          </div>
-                          <span>{dealsByStage[stage.key].length}</span>
-                        </div>
-                        <div
-                          className="kanban-list"
-                          onDragEnter={(e) => e.preventDefault()}
-                          onDragOver={(e) => e.preventDefault()}
-                          onDrop={(e) => {
-                            const propertyId = e.dataTransfer.getData('text/plain');
-                            if (propertyId) handleStageMove(propertyId, stage.key);
-                          }}
-                        >
-                          {dealsByStage[stage.key].map((deal) => (
-                            <div
-                              key={deal.id}
-                              className={`deal-card ${dealStaleMap[deal.id] ? 'deal-card-stale' : ''}`}
-                              draggable
-                              onDragStart={(e) => {
-                                e.dataTransfer.setData('text/plain', deal.id);
-                                e.dataTransfer.effectAllowed = 'move';
-                              }}
-                            >
-                              <div className="deal-card-title">{deal.name}</div>
-                              <div className="deal-card-meta"><span>{deal.address}</span></div>
-                              {dealStaleMap[deal.id] && (
-                                <div className="deal-stale-badge">
-                                  <AlertTriangle size={14} />
-                                  Stale 14+ days
-                                </div>
-                              )}
-                              <div className="deal-card-footer">
-                                <span>{Number(deal.value).toLocaleString(undefined, { style: 'currency', currency: 'USD' })}</span>
-                                <span>{deal.dealStage}</span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </section>
-                </section>
+                <PipelineView
+                  dashboardKpis={dashboardKpis}
+                  followUpOverdueCount={followUpOverdueCount}
+                  renewalQueue={renewalQueue}
+                  pipelineStages={pipelineStages}
+                  dealsByStage={dealsByStage}
+                  dealStaleMap={dealStaleMap}
+                  onStageMove={handleStageMove}
+                />
               }
             />
             <Route

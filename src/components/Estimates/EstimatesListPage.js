@@ -41,6 +41,12 @@ function getStatusClass(status) {
   return 'pill-optional';
 }
 
+function getDefaultFollowUpDate() {
+  const d = new Date();
+  d.setDate(d.getDate() + 14);
+  return d.toISOString().slice(0, 10);
+}
+
 function EstimatesListPage({
   estimates,
   properties,
@@ -53,6 +59,8 @@ function EstimatesListPage({
   const [sortDirection, setSortDirection] = useState('desc');
   const [renewalFilter, setRenewalFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [pendingSendId, setPendingSendId] = useState(null);
+  const [pendingFollowUp, setPendingFollowUp] = useState('');
 
   const rows = useMemo(() => {
     const mapped = estimates.map((estimate) => {
@@ -103,6 +111,16 @@ function EstimatesListPage({
     );
   }, [estimates]);
 
+  const overdueFollowUpCount = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return estimates.filter((e) => {
+      if (e.status !== 'sent') return false;
+      if (!e.followUpDate) return false;
+      return new Date(e.followUpDate) < today;
+    }).length;
+  }, [estimates]);
+
   function handleSort(key) {
     if (key === sortKey) {
       setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
@@ -123,6 +141,23 @@ function EstimatesListPage({
       if (!note.trim()) return;
     }
     onStatusChange(row.id, nextStatus, note.trim());
+  }
+
+  function handleSendClick(row) {
+    setPendingSendId(row.id);
+    setPendingFollowUp(getDefaultFollowUpDate());
+  }
+
+  function handleConfirmSend(row) {
+    if (!onStatusChange) return;
+    onStatusChange(row.id, 'sent', '', pendingFollowUp);
+    setPendingSendId(null);
+    setPendingFollowUp('');
+  }
+
+  function handleCancelSend() {
+    setPendingSendId(null);
+    setPendingFollowUp('');
   }
 
   function renderActions(row) {
@@ -146,8 +181,36 @@ function EstimatesListPage({
       );
     }
     if (row.status === 'approved') {
+      if (pendingSendId === row.id) {
+        return (
+          <div className="row-actions" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
+            <label style={{ fontSize: 12, fontWeight: 600 }}>
+              Follow-up date
+              <input
+                type="date"
+                value={pendingFollowUp}
+                onChange={(e) => setPendingFollowUp(e.target.value)}
+                style={{ marginLeft: 6 }}
+              />
+            </label>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button className="ghost" type="button" onClick={() => handleConfirmSend(row)}>
+                Confirm Send
+              </button>
+              <button
+                className="ghost danger-text"
+                type="button"
+                onClick={handleCancelSend}
+                style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        );
+      }
       return (
-        <button className="ghost" type="button" onClick={() => handleStatusAction(row, 'sent')}>
+        <button className="ghost" type="button" onClick={() => handleSendClick(row)}>
           Send
         </button>
       );
@@ -167,6 +230,9 @@ function EstimatesListPage({
     return <span className="muted tiny-label">-</span>;
   }
 
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
   return (
     <div className="panel-card">
       <div className="panel-header">
@@ -175,6 +241,33 @@ function EstimatesListPage({
           <p>Reporting view for status, approvals, and renewals. Create estimates from Property detail.</p>
         </div>
       </div>
+
+      {overdueFollowUpCount > 0 && (
+        <div
+          style={{
+            background: '#fef9c3',
+            border: '1px solid #fde68a',
+            borderRadius: 6,
+            padding: '10px 16px',
+            marginBottom: 12,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+          }}
+        >
+          <span style={{ flex: 1, fontSize: 14 }}>
+            ⚠ {overdueFollowUpCount} sent proposal{overdueFollowUpCount !== 1 ? 's' : ''} past follow-up date — action needed.
+          </span>
+          <button
+            className="ghost"
+            type="button"
+            onClick={() => setStatusFilter('sent')}
+            style={{ fontSize: 13 }}
+          >
+            Show
+          </button>
+        </div>
+      )}
 
       <div className="renewal-alerts">
         {renewalFilters
@@ -224,7 +317,7 @@ function EstimatesListPage({
           <div
             className="table-header"
             style={{
-              gridTemplateColumns: '0.8fr 1fr 1.4fr 1fr 1fr 0.8fr 0.8fr 1fr 0.8fr',
+              gridTemplateColumns: '0.8fr 1fr 1.4fr 1fr 1fr 0.8fr 0.8fr 0.8fr 1fr 0.8fr',
             }}
           >
             <button type="button" onClick={() => handleSort('version')}>Version</button>
@@ -234,57 +327,65 @@ function EstimatesListPage({
             <button type="button" onClick={() => handleSort('annualTotal')}>Annual Total</button>
             <button type="button" onClick={() => handleSort('status')}>Status</button>
             <button type="button" onClick={() => handleSort('contractEndDate')}>Renewal</button>
+            <button type="button" onClick={() => handleSort('followUpDate')}>Follow-up</button>
             <button type="button" onClick={() => handleSort('createdAt')}>Created</button>
             <span>Actions</span>
           </div>
-          {rows.map((row) => (
-            <div
-              key={row.id}
-              className="table-row"
-              style={{
-                gridTemplateColumns: '0.8fr 1fr 1.4fr 1fr 1fr 0.8fr 0.8fr 1fr 0.8fr',
-              }}
-            >
-              <span style={{ fontWeight: 600 }}>v{row.version || 1}</span>
-              <span style={{ fontWeight: 600 }}>{row.proposalNumber}</span>
-              <span>{row.propertyName}</span>
-              <span>{row.managerName}</span>
-              <span style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
-                {formatCurrency(row.annualTotal)}
-              </span>
-              <span>
-                <span className={`category-pill ${getStatusClass(row.status)}`}>{row.status}</span>
-                {row.approvalNote && <span className="approval-note-chip">note</span>}
-              </span>
-              <span>
-                {row.renewalBucket ? (
-                  <span className={`renewal-pill renewal-${row.renewalBucket}`}>{row.renewalBucket === 'overdue' ? 'overdue' : `${row.renewalBucket}d`}</span>
-                ) : (
-                  <span className="muted tiny-label">-</span>
-                )}
-              </span>
-              <span>{formatDate(row.createdAt)}</span>
-              <span className="row-actions">
-                <button
-                  className="ghost"
-                  type="button"
-                  onClick={() => navigate(`/estimates/${row.id}/edit`)}
-                  style={{ padding: '6px 12px', fontSize: 13 }}
-                >
-                  Edit
-                </button>
-                <button
-                  className="ghost"
-                  type="button"
-                  onClick={() => navigate(`/properties/${row.propertyId}`)}
-                  style={{ padding: '6px 12px', fontSize: 13 }}
-                >
-                  Property
-                </button>
-                {renderActions(row)}
-              </span>
-            </div>
-          ))}
+          {rows.map((row) => {
+            const followUpOverdue =
+              row.followUpDate && new Date(row.followUpDate) < today;
+            return (
+              <div
+                key={row.id}
+                className="table-row"
+                style={{
+                  gridTemplateColumns: '0.8fr 1fr 1.4fr 1fr 1fr 0.8fr 0.8fr 0.8fr 1fr 0.8fr',
+                }}
+              >
+                <span style={{ fontWeight: 600 }}>v{row.version || 1}</span>
+                <span style={{ fontWeight: 600 }}>{row.proposalNumber}</span>
+                <span>{row.propertyName}</span>
+                <span>{row.managerName}</span>
+                <span style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                  {formatCurrency(row.annualTotal)}
+                </span>
+                <span>
+                  <span className={`category-pill ${getStatusClass(row.status)}`}>{row.status}</span>
+                  {row.approvalNote && <span className="approval-note-chip">note</span>}
+                </span>
+                <span>
+                  {row.renewalBucket ? (
+                    <span className={`renewal-pill renewal-${row.renewalBucket}`}>{row.renewalBucket === 'overdue' ? 'overdue' : `${row.renewalBucket}d`}</span>
+                  ) : (
+                    <span className="muted tiny-label">-</span>
+                  )}
+                </span>
+                <span className={followUpOverdue ? 'followup-overdue' : undefined}>
+                  {row.followUpDate ? new Date(row.followUpDate).toLocaleDateString() : <span className="muted tiny-label">—</span>}
+                </span>
+                <span>{formatDate(row.createdAt)}</span>
+                <span className="row-actions">
+                  <button
+                    className="ghost"
+                    type="button"
+                    onClick={() => navigate(`/estimates/${row.id}/edit`)}
+                    style={{ padding: '6px 12px', fontSize: 13 }}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    className="ghost"
+                    type="button"
+                    onClick={() => navigate(`/properties/${row.propertyId}`)}
+                    style={{ padding: '6px 12px', fontSize: 13 }}
+                  >
+                    Property
+                  </button>
+                  {renderActions(row)}
+                </span>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
